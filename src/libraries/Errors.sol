@@ -158,4 +158,38 @@ library Errors {
     /// @notice Thrown when attempting to remove a domain config that does not exist.
     /// @param destinationDomain The CCTP domain ID that is not configured.
     error CCTPBridgeModule_DomainNotConfigured(uint32 destinationDomain);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        ATUM PAYMENT MODULE ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the Permit2 address is the zero address in the constructor.
+    error AtumModule_ZeroPermit2();
+
+    /// @notice Thrown when the immutable PaymentRails address is the zero address in the constructor.
+    error AtumModule_ZeroPaymentRails();
+
+    /// @notice Thrown when a caller is not the immutable PaymentRails.
+    /// @param caller Unauthorized caller.
+    /// @param paymentRails Immutable PaymentRails authorized to call.
+    error AtumModule_NotPaymentRails(address caller, address paymentRails);
+
+    /// @notice Thrown when the keeper address is the zero address.
+    error AtumModule_ZeroKeeper();
+
+    /// @notice Thrown when a caller is not the current keeper.
+    /// @param caller Unauthorized caller.
+    /// @param keeper Current keeper authorized to call.
+    error AtumModule_NotKeeper(address caller, address keeper);
+
+    /// @notice Thrown when a token address is zero.
+    error AtumModule_ZeroToken();
+
+    /// @notice Thrown when attempting to invalidate the zero digest.
+    error AtumModule_ZeroDigest();
+
+    /// @notice Thrown when the module receives less or more than the exact amount requested.
+    /// @param expected Amount requested from the PaymentRails.
+    /// @param actual Balance delta observed by the module.
+    error AtumModule_UnsupportedTokenReceivedAmount(uint256 expected, uint256 actual);
 }
