@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.29;
+pragma solidity 0.8.29;
 
 /// @title DataTypes
 /// @notice Centralized type definitions for the Receivables PaymentRails system
 /// @dev This library contains all struct definitions used across PaymentRails, modules, and interfaces
 library DataTypes {
     /*//////////////////////////////////////////////////////////////////////////
-                                    NODE TYPES
+                                PAYMENT RAILS TYPES
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Configuration for a token's action in the PaymentRails
@@ -59,37 +59,36 @@ library DataTypes {
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-                        DEX AGGREGATOR MODULE TYPES
+                        DEX SWAP MODULE TYPES
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Static configuration for DEX aggregator swaps (stored in PaymentRails.moduleParams).
-    /// @dev Defines the constraints that every execution must satisfy. The module validates
-    ///      per-execution data ({DexExecutionData}) against these constraints.
+    /// @notice Static configuration for DEX swaps (stored in PaymentRails.moduleParams).
     /// @param targetToken Required output token — module rejects any swap producing a different token.
-    /// @param slippageBps Maximum slippage tolerance in basis points (e.g., 100 = 1%).
-    ///        Used as a hard ceiling when validating `minAmountOut` against oracle price.
-    ///        Set to 0 to rely solely on the caller-supplied `minAmountOut`.
-    /// @param priceOracle Optional Chainlink-compatible oracle for price validation.
-    ///        Set to `address(0)` to skip oracle checks (rely on caller-supplied `minAmountOut` only).
-    /// @param maxPriceDeviationBps Maximum allowed deviation from oracle price in basis points
-    ///        (e.g., 500 = 5%). Only used when `priceOracle != address(0)`.
-    struct DexAggregatorParams {
+    /// @param maxSlippageBps Owner-configured maximum slippage in basis points (e.g., 200 = 2%).
+    ///        Only enforced when both price feeds are non-zero. Set to 0 to disable oracle enforcement.
+    /// @param sellTokenPriceFeed Chainlink AggregatorV3 address for the sell token's USD price.
+    ///        Set to `address(0)` to disable oracle-based slippage enforcement.
+    /// @param buyTokenPriceFeed Chainlink AggregatorV3 address for the buy token's USD price.
+    ///        Set to `address(0)` to disable oracle-based slippage enforcement.
+    /// @param maxStaleness Maximum acceptable age (in seconds) for oracle price data.
+    ///        Reverts if `block.timestamp - updatedAt > maxStaleness`.
+    struct DexSwapParams {
         address targetToken;
-        uint256 slippageBps;
-        address priceOracle;
-        uint256 maxPriceDeviationBps;
+        uint16 maxSlippageBps;
+        address sellTokenPriceFeed;
+        address buyTokenPriceFeed;
+        uint256 maxStaleness;
     }
 
-    /// @notice Per-execution data for DEX aggregator swaps (passed as `executionData`).
-    /// @dev Constructed off-chain by the keeper/bot from a DEX aggregator quote (1inch, 0x,
-    ///      Paraswap, or a direct Uniswap router call). The module validates every field
-    ///      against the static {DexAggregatorParams} constraints before executing.
+    /// @notice Per-execution data for DEX swaps (passed as `executionData`).
+    /// @dev Constructed off-chain from a DEX router quote. The module validates every field
+    ///      against the static {DexSwapParams} constraints before executing.
     /// @param router DEX router contract to call. Must be whitelisted in the module.
     /// @param minAmountOut Minimum acceptable output (slippage-adjusted amount from the quote).
     /// @param deadline Transaction deadline — reverts if `block.timestamp > deadline`.
     /// @param routerCalldata ABI-encoded call to the router. Must route output tokens
     ///        directly to the PaymentRails (msg.sender in the module's execute context).
-    struct DexExecutionData {
+    struct DexSwapExecutionData {
         address router;
         uint256 minAmountOut;
         uint256 deadline;
