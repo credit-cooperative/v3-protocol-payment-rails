@@ -2,14 +2,15 @@
 pragma solidity ^0.8.29;
 
 import { Test } from "forge-std/src/Test.sol";
-import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
-import { AtumModule } from "../../../../../src/modules/payments/AtumModule.sol";
-import { DataTypes } from "../../../../../src/types/DataTypes.sol";
-import { Errors } from "../../../../../src/libraries/Errors.sol";
-import { MockERC20 } from "../../../../shared/mocks/MockERC20.sol";
-import { FeeOnTransferERC20 } from "../../../../shared/mocks/FeeOnTransferERC20.sol";
-import { MockPermit2 } from "../../../../shared/mocks/atum/MockPermit2.sol";
+import { PaymentRails } from "../../../../../../src/core/PaymentRails.sol";
+import { AtumModule } from "../../../../../../src/modules/contrib/bridges/AtumModule.sol";
+import { DataTypes } from "../../../../../../src/types/DataTypes.sol";
+import { Errors } from "../../../../../../src/libraries/Errors.sol";
+import { MockERC20 } from "../../../../../shared/mocks/MockERC20.sol";
+import { FeeOnTransferERC20 } from "../../../../../shared/mocks/FeeOnTransferERC20.sol";
+import { MockPermit2 } from "../../../../../shared/mocks/atum/MockPermit2.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract AtumModuleIntegrationTest is Test {
     /*//////////////////////////////////////////////////////////////////////////
@@ -172,20 +173,26 @@ contract AtumModuleIntegrationTest is Test {
 
         assertTrue(success);
         assertEq(sourceToken.balanceOf(address(module)), PAYMENT_AMOUNT);
-        assertEq(sourceToken.allowance(address(module), address(permit2)), type(uint256).max);
+        // Permit2 allowance is now scoped to the cumulative pending amount,
+        // not type(uint256).max.
+        assertEq(sourceToken.allowance(address(module), address(permit2)), PAYMENT_AMOUNT);
+        assertEq(module.pendingAmount(address(sourceToken)), PAYMENT_AMOUNT);
     }
 
-    function test_ExecuteAction_ReusesExistingPermit2ApprovalOnSubsequentFunding() external {
+    function test_ExecuteAction_ScopesPermit2ApprovalToCumulativePending() external {
         vm.prank(executor);
         assertTrue(nodeContract.executeAction(address(sourceToken), PAYMENT_AMOUNT));
 
-        assertEq(sourceToken.allowance(address(module), address(permit2)), type(uint256).max);
+        assertEq(sourceToken.allowance(address(module), address(permit2)), PAYMENT_AMOUNT);
+        assertEq(module.pendingAmount(address(sourceToken)), PAYMENT_AMOUNT);
 
         vm.prank(executor);
         assertTrue(nodeContract.executeAction(address(sourceToken), PAYMENT_AMOUNT));
 
         assertEq(sourceToken.balanceOf(address(module)), PAYMENT_AMOUNT * 2);
-        assertEq(sourceToken.allowance(address(module), address(permit2)), type(uint256).max);
+        // Second execute grows the allowance/pending to the cumulative total.
+        assertEq(sourceToken.allowance(address(module), address(permit2)), PAYMENT_AMOUNT * 2);
+        assertEq(module.pendingAmount(address(sourceToken)), PAYMENT_AMOUNT * 2);
     }
 
     function test_ExecuteAction_IntentUsesFullAvailableModuleBalance() external {
@@ -528,13 +535,23 @@ contract AtumModuleIntegrationTest is Test {
         module.invalidateDigest(bytes32(0));
     }
 
-    function test_InvalidateDigest_RevertsWhenCallerIsNotKeeper() external {
+    function test_InvalidateDigest_RevertsWhenCallerIsNotKeeperOrOwner() external {
         bytes32 digest = keccak256("permit2 digest");
+        address stranger = makeAddr("stranger");
 
-        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModule_NotKeeper.selector, moduleOwner, keeper));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModule_NotKeeper.selector, stranger, keeper));
+
+        vm.prank(stranger);
+        module.invalidateDigest(digest);
+    }
+
+    function test_InvalidateDigest_OwnerCanInvalidate() external {
+        bytes32 digest = keccak256("permit2 digest");
 
         vm.prank(moduleOwner);
         module.invalidateDigest(digest);
+
+        assertTrue(module.isPermitDigestInvalidated(digest));
     }
 
     function testFuzz_IsValidSignature_NeverReverts(bytes32 digest, bytes calldata signature) external {
@@ -623,6 +640,29 @@ contract AtumModuleIntegrationTest is Test {
 
         assertEq(sourceToken.balanceOf(address(module)), PAYMENT_AMOUNT);
         assertEq(sourceToken.balanceOf(address(nodeContract)), PAYMENT_AMOUNT * 3);
+    }
+
+    function test_ReturnTokenBalance_RevertsWhenNotPaused() external givenFundedModule {
+        vm.expectRevert(Pausable.ExpectedPause.selector);
+        vm.prank(moduleOwner);
+        module.returnTokenBalance(address(sourceToken));
+    }
+
+    function test_ReturnTokenBalance_ResetsPendingAndRevokesPermit2Allowance()
+        external
+        givenFundedModule
+    {
+        assertEq(module.pendingAmount(address(sourceToken)), PAYMENT_AMOUNT);
+        assertEq(sourceToken.allowance(address(module), address(permit2)), PAYMENT_AMOUNT);
+
+        vm.prank(moduleOwner);
+        module.pause();
+
+        vm.prank(moduleOwner);
+        module.returnTokenBalance(address(sourceToken));
+
+        assertEq(module.pendingAmount(address(sourceToken)), 0);
+        assertEq(sourceToken.allowance(address(module), address(permit2)), 0);
     }
 
     function test_ReturnTokenBalance_RevertsWhenTokenIsZero() external {

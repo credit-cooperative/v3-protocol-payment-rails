@@ -10,15 +10,12 @@ This file tracks every module shipped in this repo, its tier, maintainer, and au
 | `src/modules/swaps/DexAggregatorModule.sol` | first-party | @credit-cooperative/core-team              | unaudited    | Atomic swap via whitelisted DEX routers |
 | `src/modules/swaps/CowSwapModule.sol`       | first-party | @credit-cooperative/core-team              | unaudited    | CoW Protocol order book integration     |
 | `src/modules/bridges/CCTPBridgeModule.sol`  | first-party | @credit-cooperative/core-team              | unaudited    | Circle CCTP integration                 |
-| `src/modules/payments/AtumModule.sol`       | first-party | @atum-team / @credit-cooperative/core-team | unaudited    | Atum payment intent integration         |
 
 ## Community modules
 
-_None yet. Add a row when merging a PR that adds a `src/modules/contrib/<category>/<Module>.sol`._
-
-| Path                                                          | Tier      | Maintainer                           | Audit Status | Upstream                           |
-| ------------------------------------------------------------- | --------- | ------------------------------------ | ------------ | ---------------------------------- |
-| _example: `src/modules/contrib/bridges/AtumBridgeModule.sol`_ | _contrib_ | _@atum-team (security@atum.example)_ | _unaudited_  | _https://github.com/atum-team/..._ |
+| Path                                          | Tier    | Maintainer                            | Audit Status | Upstream                                                |
+| --------------------------------------------- | ------- | ------------------------------------- | ------------ | ------------------------------------------------------- |
+| `src/modules/contrib/bridges/AtumModule.sol`  | contrib | @atum-labs (security@atumlabs.xyz)    | unaudited    | https://github.com/Atum-Labs/credit-cooperative-keeper  |
 
 ## Audit status values
 

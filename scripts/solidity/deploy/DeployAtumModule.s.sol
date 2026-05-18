@@ -2,7 +2,7 @@
 pragma solidity >=0.8.29 <0.9.0;
 
 import { console2 } from "forge-std/src/Script.sol";
-import { AtumModule } from "../../../src/modules/payments/AtumModule.sol";
+import { AtumModule } from "../../../src/modules/contrib/bridges/AtumModule.sol";
 
 import { BaseScript } from "../Base.s.sol";
 

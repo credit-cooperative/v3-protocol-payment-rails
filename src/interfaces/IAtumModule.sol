@@ -61,6 +61,12 @@ interface IAtumModule is IActionModule, IERC1271 {
     /// @notice Returns whether a Permit2 digest has been permanently invalidated.
     function isPermitDigestInvalidated(bytes32 digest) external view returns (bool);
 
+    /// @notice Cumulative pending source amount per token, used to scope the Permit2 allowance.
+    /// @dev Incremented by `execute`, reset to 0 by `returnTokenBalance` (which also revokes
+    ///      Permit2 to 0). Monotonically increasing between recovery sweeps. The actual
+    ///      pullable amount is bounded below by `IERC20.balanceOf(this)`.
+    function pendingAmount(address token) external view returns (uint256);
+
     /// @notice Owner-only keeper rotation.
     function setKeeper(address newKeeper) external;
 
@@ -72,10 +78,10 @@ interface IAtumModule is IActionModule, IERC1271 {
     /// @notice Owner-only unpause after abandoned floating Permit2 digests have been invalidated or expired.
     function unpause() external;
 
-    /// @notice Keeper-only permanent invalidation of an abandoned Permit2 digest.
+    /// @notice Keeper- or owner-callable permanent invalidation of an abandoned Permit2 digest.
     function invalidateDigest(bytes32 digest) external;
 
-    /// @notice Keeper-only permanent invalidation of multiple abandoned Permit2 digests.
+    /// @notice Keeper- or owner-callable permanent invalidation of multiple abandoned Permit2 digests.
     function invalidateDigests(bytes32[] calldata digests) external;
 
     /// @notice Owner-only paused recovery that returns the full current token balance to the immutable PaymentRails.

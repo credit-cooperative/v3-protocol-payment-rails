@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import { IAtumModule } from "../../interfaces/IAtumModule.sol";
-import { IPermit2 } from "../../interfaces/IPermit2.sol";
-import { IActionModule } from "../../interfaces/IActionModule.sol";
-import { ActionModuleBase } from "../../abstracts/ActionModuleBase.sol";
-import { DataTypes } from "../../types/DataTypes.sol";
-import { Errors } from "../../libraries/Errors.sol";
+import { IAtumModule } from "../../../interfaces/IAtumModule.sol";
+import { IPermit2 } from "../../../interfaces/IPermit2.sol";
+import { IActionModule } from "../../../interfaces/IActionModule.sol";
+import { ActionModuleBase } from "../../../abstracts/ActionModuleBase.sol";
+import { DataTypes } from "../../../types/DataTypes.sol";
+import { Errors } from "../../../libraries/Errors.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
@@ -14,6 +14,9 @@ import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2St
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /// @title AtumModule
+/// @custom:tier contrib
+/// @custom:maintainer @atum-labs (security@atumlabs.xyz)
+/// @custom:audit-status unaudited
 /// @notice Minimal PaymentRails-bound Atum payment contract and ERC-1271 Permit2 owner.
 /// @dev Each module deployment is permanently bound to one immutable PaymentRails. The module
 ///      is funded by that PaymentRails through `execute`, emits the current available source
@@ -84,6 +87,16 @@ contract AtumModule is IAtumModule, ActionModuleBase, Ownable2Step, Pausable {
     /// @dev Permit2 digests that must no longer satisfy ERC-1271 checks.
     mapping(bytes32 digest => bool invalidated) private _invalidatedPermitDigests;
 
+    /// @inheritdoc IAtumModule
+    /// @dev Cumulative source tokens routed in via `execute` minus what's been returned
+    ///      to PaymentRails via `returnTokenBalance`. Used to cap the Permit2 ERC-20
+    ///      allowance to actual pending instead of `type(uint256).max`. Permit2 itself
+    ///      reduces the on-chain allowance as Atum Escrow pulls funds, so the *effective*
+    ///      pullable amount is `min(allowance(this, permit2), balanceOf(this))`. This
+    ///      value is monotonically increasing between recovery sweeps; reset only by
+    ///      `returnTokenBalance` (which also revokes the Permit2 allowance to 0).
+    mapping(address token => uint256 amount) public override pendingAmount;
+
     /*//////////////////////////////////////////////////////////////////////////
                                   CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
@@ -135,10 +148,14 @@ contract AtumModule is IAtumModule, ActionModuleBase, Ownable2Step, Pausable {
 
         _pullExactToken(token, amount);
 
-        if (IERC20(token).allowance(address(this), permit2) < type(uint256).max) {
-            IERC20(token).forceApprove(permit2, type(uint256).max);
-            emit Permit2ApprovalSet(token, permit2, type(uint256).max);
-        }
+        // Cap the Permit2 allowance to actual cumulative pending. Each `execute`
+        // grows `pendingAmount[token]`; Permit2 pulls reduce the on-chain allowance
+        // as Escrow drains. `forceApprove` sets the new ceiling absolutely, so an
+        // un-drained prior allowance gets bumped to the new total (not double-added).
+        pendingAmount[token] += amount;
+        uint256 newAllowance = pendingAmount[token];
+        IERC20(token).forceApprove(permit2, newAllowance);
+        emit Permit2ApprovalSet(token, permit2, newAllowance);
 
         uint256 availableSourceAmount = IERC20(token).balanceOf(address(this));
         emit AtumIntentCreated(
@@ -173,12 +190,12 @@ contract AtumModule is IAtumModule, ActionModuleBase, Ownable2Step, Pausable {
     }
 
     /// @inheritdoc IAtumModule
-    function invalidateDigest(bytes32 digest) external onlyKeeper {
+    function invalidateDigest(bytes32 digest) external onlyKeeperOrOwner {
         _invalidateDigest(digest);
     }
 
     /// @inheritdoc IAtumModule
-    function invalidateDigests(bytes32[] calldata digests) external onlyKeeper {
+    function invalidateDigests(bytes32[] calldata digests) external onlyKeeperOrOwner {
         uint256 length = digests.length;
         for (uint256 i; i < length; ++i) {
             _invalidateDigest(digests[i]);
@@ -186,12 +203,12 @@ contract AtumModule is IAtumModule, ActionModuleBase, Ownable2Step, Pausable {
     }
 
     /// @inheritdoc IAtumModule
-    function returnTokenBalance(address token) external onlyOwner returns (uint256 amountReturned) {
+    function returnTokenBalance(address token) external onlyOwner whenPaused returns (uint256 amountReturned) {
         amountReturned = _returnTokenBalance(token);
     }
 
     /// @inheritdoc IAtumModule
-    function returnTokenBalances(address[] calldata tokens) external onlyOwner {
+    function returnTokenBalances(address[] calldata tokens) external onlyOwner whenPaused {
         uint256 length = tokens.length;
         for (uint256 i; i < length; ++i) {
             _returnTokenBalance(tokens[i]);
@@ -349,7 +366,13 @@ contract AtumModule is IAtumModule, ActionModuleBase, Ownable2Step, Pausable {
 
     function _pullExactToken(address token, uint256 amount) private {
         uint256 balanceBefore = IERC20(token).balanceOf(address(this));
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        // Route through the base class helper so error paths fall through into the
+        // module's `_failedResult` / revert surface consistently (#11). The
+        // exact-balance check below still defends against fee-on-transfer tokens.
+        bool transferred = _safeTransferFrom(token, msg.sender, address(this), amount);
+        if (!transferred) {
+            revert Errors.AtumModule_UnsupportedTokenReceivedAmount(amount, 0);
+        }
         uint256 received = IERC20(token).balanceOf(address(this)) - balanceBefore;
         if (received != amount) {
             revert Errors.AtumModule_UnsupportedTokenReceivedAmount(amount, received);
@@ -369,6 +392,13 @@ contract AtumModule is IAtumModule, ActionModuleBase, Ownable2Step, Pausable {
 
         amountReturned = IERC20(token).balanceOf(address(this));
         IERC20(token).safeTransfer(paymentRails, amountReturned);
+
+        // Recovery sweep clears the cumulative pending tracker and revokes the
+        // Permit2 allowance so an already-signed-but-uninvalidated digest can't
+        // re-pull anything that arrives later (refund, mistaken transfer).
+        pendingAmount[token] = 0;
+        IERC20(token).forceApprove(permit2, 0);
+        emit Permit2ApprovalSet(token, permit2, 0);
 
         emit TokenBalanceReturned(token, paymentRails, amountReturned);
     }
@@ -392,6 +422,16 @@ contract AtumModule is IAtumModule, ActionModuleBase, Ownable2Step, Pausable {
 
     modifier onlyKeeper() {
         if (msg.sender != keeper) revert Errors.AtumModule_NotKeeper(msg.sender, keeper);
+        _;
+    }
+
+    /// @dev Owner already has stronger powers (`pause`, `setKeeper`, `returnTokenBalance`);
+    ///      digest invalidation belongs in the same trust tier so the owner doesn't have
+    ///      to rotate the keeper just to cancel a stale digest.
+    modifier onlyKeeperOrOwner() {
+        if (msg.sender != keeper && msg.sender != owner()) {
+            revert Errors.AtumModule_NotKeeper(msg.sender, keeper);
+        }
         _;
     }
 }
