@@ -648,10 +648,7 @@ contract AtumModuleIntegrationTest is Test {
         module.returnTokenBalance(address(sourceToken));
     }
 
-    function test_ReturnTokenBalance_ResetsPendingAndRevokesPermit2Allowance()
-        external
-        givenFundedModule
-    {
+    function test_ReturnTokenBalance_ResetsPendingAndRevokesPermit2Allowance() external givenFundedModule {
         assertEq(module.pendingAmount(address(sourceToken)), PAYMENT_AMOUNT);
         assertEq(sourceToken.allowance(address(module), address(permit2)), PAYMENT_AMOUNT);
 
