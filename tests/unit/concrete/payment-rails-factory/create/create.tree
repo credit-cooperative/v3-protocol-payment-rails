@@ -1,0 +1,12 @@
+PaymentRailsFactory_Create
+├── when owner is zero address
+│   └── it should revert with PaymentRailsFactory_ZeroOwner
+└── when owner is valid address
+    ├── it should deploy a new PaymentRails contract
+    ├── it should set the owner on the deployed PaymentRails
+    ├── it should register the instance in the factory
+    ├── it should increment the instance count
+    ├── it should emit a PaymentRailsCreated event
+    └── when called multiple times
+        ├── it should deploy distinct instances
+        └── it should register all instances

@@ -13,6 +13,7 @@ node_modules
 out
 out-*
 repomix
+x-ray
 typechain-types
 
 # files
