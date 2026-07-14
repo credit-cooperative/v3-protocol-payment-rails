@@ -1,0 +1,12 @@
+CowSwapModuleFactory_Fork
+├── when the factory is deployed against the real GPv2Settlement
+│   ├── it should deploy successfully
+│   ├── it should reject an EOA settlement address
+│   └── when create is called
+│       ├── it should wire the module to the real settlement domain separator
+│       ├── it should wire the module to the real vault relayer
+│       ├── it should register the module in the factory
+│       └── when the module is configured on a PaymentRails
+│           └── it should execute a real USDC order end-to-end
+└── when createDeterministic is called on the fork
+    └── it should deploy to the predicted address

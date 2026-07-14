@@ -1,0 +1,9 @@
+CowSwapModuleFactory_Constructor
+├── when cowSettlement is zero address
+│   └── it should revert with CowSwapModuleFactory_ZeroCowSettlement
+├── when cowSettlement has no code
+│   └── it should revert with CowSwapModuleFactory_SettlementNotContract
+└── when cowSettlement is a valid contract
+    ├── it should set cowSettlement
+    ├── it should set sequencerUptimeFeed
+    └── it should set sequencerGracePeriod

@@ -108,6 +108,23 @@ library Errors {
     error PaymentRailsFactory_ZeroOwner();
 
     /*//////////////////////////////////////////////////////////////////////////
+                        COWSWAP MODULE FACTORY ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the GPv2Settlement address is the zero address in the factory constructor.
+    error CowSwapModuleFactory_ZeroCowSettlement();
+
+    /// @notice Thrown when the GPv2Settlement address has no deployed code in the factory constructor.
+    /// @param settlement The EOA address that was rejected.
+    error CowSwapModuleFactory_SettlementNotContract(address settlement);
+
+    /// @notice Thrown when attempting to deploy a CowSwapModule with owner set to the zero address.
+    error CowSwapModuleFactory_ZeroOwner();
+
+    /// @notice Thrown when attempting to deploy a CowSwapModule with PaymentRails set to the zero address.
+    error CowSwapModuleFactory_ZeroPaymentRails();
+
+    /*//////////////////////////////////////////////////////////////////////////
                         CCTP BRIDGE MODULE ERRORS
     //////////////////////////////////////////////////////////////////////////*/
 
