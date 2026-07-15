@@ -6,8 +6,16 @@ import { AtumModule } from "./AtumModule.sol";
 import { Errors } from "../../../libraries/Errors.sol";
 
 /// @title AtumModuleFactory
+/// @custom:tier contrib
+/// @custom:maintainer @atum-labs (security@atumlabs.xyz)
+/// @custom:audit-status unaudited
 /// @author Credit Cooperative
 /// @notice See the documentation in {IAtumModuleFactory}.
+/// @dev `create`/`createDeterministic` are permissionless: anyone can deploy an AtumModule and it is
+///      recorded in the registry. The registry is informational only — membership is NOT an
+///      authorization or trust signal, and `_deployedModules` grows unbounded. Consumers must verify
+///      a module's `owner`/`keeper`/`paymentRails` wiring rather than trusting registry presence, and
+///      read `getDeployedModules` offchain (it returns the full array).
 contract AtumModuleFactory is IAtumModuleFactory {
     /*//////////////////////////////////////////////////////////////////////////
                                 IMMUTABLE STATE

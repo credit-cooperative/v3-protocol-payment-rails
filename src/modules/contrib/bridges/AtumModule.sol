@@ -121,12 +121,10 @@ contract AtumModule is IAtumModule, ActionModuleBase, Ownable2Step, Pausable {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IActionModule
-    /// @dev `executionData` is unused — destination is fully encoded in `params`.
     function execute(
         address token,
         uint256 amount,
-        bytes calldata params,
-        bytes calldata /* executionData */
+        bytes calldata params
     )
         external
         override(ActionModuleBase, IActionModule)
@@ -236,12 +234,10 @@ contract AtumModule is IAtumModule, ActionModuleBase, Ownable2Step, Pausable {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IActionModule
-    /// @dev `executionData` is unused — destination is fully encoded in `params`.
     function validate(
         address token,
         uint256 amount,
-        bytes calldata params,
-        bytes calldata /* executionData */
+        bytes calldata params
     )
         external
         view

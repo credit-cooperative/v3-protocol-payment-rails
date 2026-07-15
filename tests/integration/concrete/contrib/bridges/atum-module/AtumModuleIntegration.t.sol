@@ -241,7 +241,7 @@ contract AtumModuleIntegrationTest is Test {
         );
 
         vm.prank(executor);
-        module.execute(address(sourceToken), PAYMENT_AMOUNT, moduleParams, "");
+        module.execute(address(sourceToken), PAYMENT_AMOUNT, moduleParams);
     }
 
     function test_WhenSharedWithDifferentNode_ExecutionReturnsFalse() external {
@@ -736,7 +736,7 @@ contract AtumModuleIntegrationTest is Test {
         returns (DataTypes.ExecutionResult memory result)
     {
         vm.prank(address(nodeContract));
-        result = module.execute(token, amount, params, "");
+        result = module.execute(token, amount, params);
     }
 
     function _assertFailedResult(
@@ -764,7 +764,7 @@ contract AtumModuleIntegrationTest is Test {
         internal
     {
         vm.prank(address(nodeContract));
-        (bool isValid, string memory reason) = module.validate(token, amount, params, "");
+        (bool isValid, string memory reason) = module.validate(token, amount, params);
 
         assertEq(isValid, expectedValid);
         assertEq(reason, expectedReason);
