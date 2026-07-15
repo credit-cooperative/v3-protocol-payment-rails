@@ -1,0 +1,158 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.29;
+
+import { IAtumModuleFactory } from "../../../interfaces/IAtumModuleFactory.sol";
+import { AtumModule } from "./AtumModule.sol";
+import { Errors } from "../../../libraries/Errors.sol";
+
+/// @title AtumModuleFactory
+/// @author Credit Cooperative
+/// @notice See the documentation in {IAtumModuleFactory}.
+contract AtumModuleFactory is IAtumModuleFactory {
+    /*//////////////////////////////////////////////////////////////////////////
+                                IMMUTABLE STATE
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IAtumModuleFactory
+    address public immutable override permit2;
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    STORAGE
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Array of all deployed AtumModule instances.
+    address[] private _deployedModules;
+
+    /// @dev Maps deployed module addresses to true for O(1) lookups.
+    mapping(address module => bool deployed) private _isDeployedModule;
+
+    /// @dev Maps a PaymentRails to all modules deployed for it.
+    mapping(address paymentRails => address[] modules) private _modulesByPaymentRails;
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    CONSTRUCTOR
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Permit2 is fixed at factory deployment so the registry guarantees the wiring of every
+    /// module it lists, not just the bytecode.
+    /// @param _permit2 The canonical Permit2 contract on this chain.
+    constructor(address _permit2) {
+        if (_permit2 == address(0)) {
+            revert Errors.AtumModuleFactory_ZeroPermit2();
+        }
+        // The module constructor calls DOMAIN_SEPARATOR() on this address; rejecting EOAs here fails
+        // fast at factory deployment instead of on every create().
+        if (_permit2.code.length == 0) {
+            revert Errors.AtumModuleFactory_Permit2NotContract(_permit2);
+        }
+
+        permit2 = _permit2;
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            DEPLOYMENT FUNCTIONS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IAtumModuleFactory
+    function create(address owner, address paymentRails, address keeper) external returns (address module) {
+        // Checks: Validate the per-instance parameters.
+        _checkCreateParams(owner, paymentRails, keeper);
+
+        // Interactions: Deploy new AtumModule wired to the PaymentRails.
+        module = address(new AtumModule(permit2, paymentRails, owner, keeper));
+
+        // Effects: Register in the on-chain registry.
+        _register(module, paymentRails, owner);
+    }
+
+    /// @inheritdoc IAtumModuleFactory
+    function createDeterministic(
+        address owner,
+        address paymentRails,
+        address keeper,
+        bytes32 salt
+    )
+        external
+        returns (address module)
+    {
+        // Checks: Validate the per-instance parameters.
+        _checkCreateParams(owner, paymentRails, keeper);
+
+        // Interactions: Deploy new AtumModule with deterministic address.
+        module = address(new AtumModule{ salt: salt }(permit2, paymentRails, owner, keeper));
+
+        // Effects: Register in the on-chain registry.
+        _register(module, paymentRails, owner);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            CONSTANT FUNCTIONS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IAtumModuleFactory
+    function predictDeterministicAddress(
+        address owner,
+        address paymentRails,
+        address keeper,
+        bytes32 salt
+    )
+        external
+        view
+        returns (address predicted)
+    {
+        bytes32 bytecodeHash = keccak256(
+            abi.encodePacked(type(AtumModule).creationCode, abi.encode(permit2, paymentRails, owner, keeper))
+        );
+        predicted =
+            address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, bytecodeHash)))));
+    }
+
+    /// @inheritdoc IAtumModuleFactory
+    function isDeployedModule(address module) external view returns (bool) {
+        return _isDeployedModule[module];
+    }
+
+    /// @inheritdoc IAtumModuleFactory
+    function getDeployedModules() external view returns (address[] memory) {
+        return _deployedModules;
+    }
+
+    /// @inheritdoc IAtumModuleFactory
+    function getModuleCount() external view returns (uint256) {
+        return _deployedModules.length;
+    }
+
+    /// @inheritdoc IAtumModuleFactory
+    function getModulesForPaymentRails(address paymentRails) external view returns (address[] memory) {
+        return _modulesByPaymentRails[paymentRails];
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Validates the per-instance deployment parameters shared by both create functions.
+    function _checkCreateParams(address owner, address paymentRails, address keeper) private pure {
+        // Zero owner would brick the module: no one could rotate the keeper or pause.
+        if (owner == address(0)) {
+            revert Errors.AtumModuleFactory_ZeroOwner();
+        }
+        // Zero paymentRails would make the module unusable: execute() only accepts the wired caller.
+        if (paymentRails == address(0)) {
+            revert Errors.AtumModuleFactory_ZeroPaymentRails();
+        }
+        // Zero keeper is rejected by the module constructor; check here for a clear factory-level error.
+        if (keeper == address(0)) {
+            revert Errors.AtumModuleFactory_ZeroKeeper();
+        }
+    }
+
+    /// @dev Registers a newly deployed module in the on-chain registry and emits the creation event.
+    function _register(address module, address paymentRails, address owner) private {
+        _deployedModules.push(module);
+        _isDeployedModule[module] = true;
+        _modulesByPaymentRails[paymentRails].push(module);
+
+        emit AtumModuleCreated(module, paymentRails, owner);
+    }
+}

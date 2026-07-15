@@ -166,4 +166,24 @@ library Errors {
     /// @param expected Amount requested from the PaymentRails.
     /// @param actual Balance delta observed by the module.
     error AtumModule_UnsupportedTokenReceivedAmount(uint256 expected, uint256 actual);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        ATUM PAYMENT MODULE FACTORY ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the factory is constructed with a zero Permit2 address.
+    error AtumModuleFactory_ZeroPermit2();
+
+    /// @notice Thrown when the factory is constructed with a Permit2 address that has no code.
+    /// @param permit2 The address supplied as Permit2.
+    error AtumModuleFactory_Permit2NotContract(address permit2);
+
+    /// @notice Thrown when a module is created with a zero owner address.
+    error AtumModuleFactory_ZeroOwner();
+
+    /// @notice Thrown when a module is created with a zero PaymentRails address.
+    error AtumModuleFactory_ZeroPaymentRails();
+
+    /// @notice Thrown when a module is created with a zero keeper address.
+    error AtumModuleFactory_ZeroKeeper();
 }

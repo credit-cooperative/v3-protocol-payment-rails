@@ -13,9 +13,10 @@ This file tracks every module shipped in this repo, its tier, maintainer, and au
 
 ## Community modules
 
-| Path                                          | Tier    | Maintainer                            | Audit Status | Upstream                                                |
-| --------------------------------------------- | ------- | ------------------------------------- | ------------ | ------------------------------------------------------- |
-| `src/modules/contrib/bridges/AtumModule.sol`  | contrib | @atum-labs (security@atumlabs.xyz)    | unaudited    | https://github.com/Atum-Labs/credit-cooperative-keeper  |
+| Path                                                | Tier    | Maintainer                         | Audit Status | Upstream                                                             |
+| --------------------------------------------------- | ------- | ---------------------------------- | ------------ | -------------------------------------------------------------------- |
+| `src/modules/contrib/bridges/AtumModule.sol`        | contrib | @atum-labs (security@atumlabs.xyz) | unaudited    | https://github.com/Atum-Labs/credit-cooperative-keeper               |
+| `src/modules/contrib/bridges/AtumModuleFactory.sol` | contrib | @atum-labs (security@atumlabs.xyz) | unaudited    | Borrower-specific factory for AtumModule (CREATE/CREATE2 + registry) |
 
 ## Audit status values
 
