@@ -109,4 +109,58 @@ library Errors {
 
     /// @notice Thrown when the USDC address is the zero address in the constructor.
     error CCTPBridgeModule_ZeroUSDC();
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        ATUM PAYMENT MODULE ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the Permit2 address is the zero address in the constructor.
+    error AtumModule_ZeroPermit2();
+
+    /// @notice Thrown when the immutable PaymentRails address is the zero address in the constructor.
+    error AtumModule_ZeroPaymentRails();
+
+    /// @notice Thrown when a caller is not the immutable PaymentRails.
+    /// @param caller Unauthorized caller.
+    /// @param paymentRails Immutable PaymentRails authorized to call.
+    error AtumModule_NotPaymentRails(address caller, address paymentRails);
+
+    /// @notice Thrown when the keeper address is the zero address.
+    error AtumModule_ZeroKeeper();
+
+    /// @notice Thrown when a caller is not the current keeper.
+    /// @param caller Unauthorized caller.
+    /// @param keeper Current keeper authorized to call.
+    error AtumModule_NotKeeper(address caller, address keeper);
+
+    /// @notice Thrown when a token address is zero.
+    error AtumModule_ZeroToken();
+
+    /// @notice Thrown when attempting to invalidate the zero digest.
+    error AtumModule_ZeroDigest();
+
+    /// @notice Thrown when the module receives less or more than the exact amount requested.
+    /// @param expected Amount requested from the PaymentRails.
+    /// @param actual Balance delta observed by the module.
+    error AtumModule_UnsupportedTokenReceivedAmount(uint256 expected, uint256 actual);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        ATUM PAYMENT MODULE FACTORY ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the factory is constructed with a zero Permit2 address.
+    error AtumModuleFactory_ZeroPermit2();
+
+    /// @notice Thrown when the factory is constructed with a Permit2 address that has no code.
+    /// @param permit2 The address supplied as Permit2.
+    error AtumModuleFactory_Permit2NotContract(address permit2);
+
+    /// @notice Thrown when a module is created with a zero owner address.
+    error AtumModuleFactory_ZeroOwner();
+
+    /// @notice Thrown when a module is created with a zero PaymentRails address.
+    error AtumModuleFactory_ZeroPaymentRails();
+
+    /// @notice Thrown when a module is created with a zero keeper address.
+    error AtumModuleFactory_ZeroKeeper();
 }
