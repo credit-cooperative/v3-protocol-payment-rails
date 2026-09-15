@@ -101,6 +101,48 @@ library Errors {
     error CowSwapModule_OwnershipCannotBeRenounced();
 
     /*//////////////////////////////////////////////////////////////////////////
+                        PAYMENT RAILS FACTORY ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when attempting to deploy a PaymentRails with owner set to the zero address.
+    error PaymentRailsFactory_ZeroOwner();
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        COWSWAP MODULE FACTORY ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the GPv2Settlement address is the zero address in the factory constructor.
+    error CowSwapModuleFactory_ZeroCowSettlement();
+
+    /// @notice Thrown when the GPv2Settlement address has no deployed code in the factory constructor.
+    /// @param settlement The EOA address that was rejected.
+    error CowSwapModuleFactory_SettlementNotContract(address settlement);
+
+    /// @notice Thrown when a non-zero sequencer uptime feed has no deployed code in the factory
+    /// constructor. `address(0)` stays valid — it is the L1 profile.
+    /// @param sequencerUptimeFeed The EOA address that was rejected.
+    error CowSwapModuleFactory_SequencerFeedNotContract(address sequencerUptimeFeed);
+
+    /// @notice Thrown when attempting to deploy a CowSwapModule with owner set to the zero address.
+    error CowSwapModuleFactory_ZeroOwner();
+
+    /// @notice Thrown when attempting to deploy a CowSwapModule with PaymentRails set to the zero address.
+    error CowSwapModuleFactory_ZeroPaymentRails();
+
+    /// @notice Thrown when the target PaymentRails address has no deployed code.
+    /// @param paymentRails The address that was rejected.
+    error CowSwapModuleFactory_PaymentRailsNotContract(address paymentRails);
+
+    /// @notice Thrown when the target PaymentRails does not expose a decodable `owner()`.
+    /// @param paymentRails The address whose ownership could not be resolved.
+    error CowSwapModuleFactory_OwnerLookupFailed(address paymentRails);
+
+    /// @notice Thrown when the caller is not the current owner of the target PaymentRails.
+    /// @param caller The unauthorized caller.
+    /// @param paymentRailsOwner The current owner of the target PaymentRails.
+    error CowSwapModuleFactory_CallerNotPaymentRailsOwner(address caller, address paymentRailsOwner);
+
+    /*//////////////////////////////////////////////////////////////////////////
                         CCTP BRIDGE MODULE ERRORS
     //////////////////////////////////////////////////////////////////////////*/
 
