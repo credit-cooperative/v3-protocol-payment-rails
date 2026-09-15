@@ -5,6 +5,7 @@ import { Test } from "forge-std/src/Test.sol";
 import { CowSwapModuleFactory } from "../../../../../src/modules/swaps/CowSwapModuleFactory.sol";
 import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
 
+import { MockChainlinkAggregator } from "../../../../shared/mocks/MockChainlinkAggregator.sol";
 import { MockCowSettlement } from "../../../../shared/mocks/MockCowSettlement.sol";
 
 /// @dev Base test contract for CowSwapModuleFactory unit tests.
@@ -51,7 +52,8 @@ abstract contract CowSwapModuleFactoryBase is Test {
         owner = makeAddr("owner");
         railsOwner = makeAddr("railsOwner");
         vaultRelayer = makeAddr("vaultRelayer");
-        sequencerFeed = makeAddr("sequencerFeed");
+        // A sequencer uptime feed must be a real contract; answer 0 means the sequencer is up.
+        sequencerFeed = address(new MockChainlinkAggregator(0, 0));
 
         paymentRails = address(new PaymentRails(railsOwner));
 

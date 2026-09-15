@@ -73,6 +73,9 @@ interface ICowSwapModuleFactory {
     function cowSettlement() external view returns (address);
 
     /// @notice The Chainlink L2 sequencer uptime feed passed to every deployed module.
+    /// @dev Fixed at factory deployment: either `address(0)` for the L1 profile or a deployed
+    /// contract. A non-zero address without code is rejected in the constructor, since every module
+    /// the factory produced would then revert on its oracle read.
     /// @return The sequencer uptime feed address; `address(0)` on L1.
     function sequencerUptimeFeed() external view returns (address);
 

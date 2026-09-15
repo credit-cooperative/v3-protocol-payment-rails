@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import { Test } from "forge-std/src/Test.sol";
 import { DexSwapModuleFactory } from "../../../../../src/modules/swaps/DexSwapModuleFactory.sol";
 
+import { MockChainlinkAggregator } from "../../../../shared/mocks/MockChainlinkAggregator.sol";
 import { MockRouter } from "../../../../shared/mocks/MockRouter.sol";
 
 /// @dev Base test contract for DexSwapModuleFactory unit tests.
@@ -37,7 +38,8 @@ abstract contract DexSwapModuleFactoryBase is Test {
 
     function setUp() public virtual {
         deployer = makeAddr("deployer");
-        sequencerFeed = makeAddr("sequencerFeed");
+        // A sequencer uptime feed must be a real contract; answer 0 means the sequencer is up.
+        sequencerFeed = address(new MockChainlinkAggregator(0, 0));
 
         router = new MockRouter();
 

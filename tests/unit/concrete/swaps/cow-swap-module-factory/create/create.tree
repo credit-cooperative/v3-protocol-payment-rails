@@ -9,6 +9,8 @@ CowSwapModuleFactory_Create
 │   └── it should revert with CowSwapModuleFactory_OwnerLookupFailed
 ├── when paymentRails returns malformed owner data
 │   └── it should revert with CowSwapModuleFactory_OwnerLookupFailed
+├── when paymentRails returns an owner word with dirty upper bits
+│   └── it should revert with CowSwapModuleFactory_OwnerLookupFailed
 ├── when the caller is not the paymentRails owner
 │   ├── it should revert with CowSwapModuleFactory_CallerNotPaymentRailsOwner
 │   ├── it should revert for an attacker planting an attacker-owned module

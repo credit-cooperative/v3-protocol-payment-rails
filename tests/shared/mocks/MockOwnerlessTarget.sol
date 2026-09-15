@@ -19,3 +19,15 @@ contract MockMalformedOwnerTarget {
         }
     }
 }
+
+/// @dev A contract whose fallback answers `owner()` with a full 32-byte word that is not canonical
+/// ABI padding — the upper 96 bits are set. Proves the factory reports this as a lookup failure
+/// instead of reverting inside `abi.decode` with empty revert data.
+contract MockDirtyOwnerTarget {
+    fallback() external {
+        assembly {
+            mstore(0x00, not(0))
+            return(0x00, 0x20)
+        }
+    }
+}

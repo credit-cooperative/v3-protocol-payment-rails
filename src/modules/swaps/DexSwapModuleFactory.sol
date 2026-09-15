@@ -50,6 +50,13 @@ contract DexSwapModuleFactory is IDexSwapModuleFactory {
         if (_router.code.length == 0) {
             revert Errors.DexSwapModuleFactory_RouterNotContract(_router);
         }
+        // address(0) is the L1 profile and stays valid. A non-zero EOA is always a misconfiguration:
+        // the module's oracle read would hit the extcodesize check and revert, so every module this
+        // factory deploys could never execute. The wiring is immutable, so a typo caught here costs a
+        // factory redeployment instead of the factory plus every module under it.
+        if (_sequencerUptimeFeed != address(0) && _sequencerUptimeFeed.code.length == 0) {
+            revert Errors.DexSwapModuleFactory_SequencerFeedNotContract(_sequencerUptimeFeed);
+        }
 
         router = _router;
         sequencerUptimeFeed = _sequencerUptimeFeed;

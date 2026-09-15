@@ -118,6 +118,11 @@ library Errors {
     /// @param settlement The EOA address that was rejected.
     error CowSwapModuleFactory_SettlementNotContract(address settlement);
 
+    /// @notice Thrown when a non-zero sequencer uptime feed has no deployed code in the factory
+    /// constructor. `address(0)` stays valid — it is the L1 profile.
+    /// @param sequencerUptimeFeed The EOA address that was rejected.
+    error CowSwapModuleFactory_SequencerFeedNotContract(address sequencerUptimeFeed);
+
     /// @notice Thrown when attempting to deploy a CowSwapModule with owner set to the zero address.
     error CowSwapModuleFactory_ZeroOwner();
 
@@ -147,6 +152,11 @@ library Errors {
     /// @notice Thrown when the Uniswap V3 router address has no deployed code in the factory constructor.
     /// @param router The EOA address that was rejected.
     error DexSwapModuleFactory_RouterNotContract(address router);
+
+    /// @notice Thrown when a non-zero sequencer uptime feed has no deployed code in the factory
+    /// constructor. `address(0)` stays valid — it is the L1 profile.
+    /// @param sequencerUptimeFeed The EOA address that was rejected.
+    error DexSwapModuleFactory_SequencerFeedNotContract(address sequencerUptimeFeed);
 
     /*//////////////////////////////////////////////////////////////////////////
                         CCTP BRIDGE MODULE ERRORS

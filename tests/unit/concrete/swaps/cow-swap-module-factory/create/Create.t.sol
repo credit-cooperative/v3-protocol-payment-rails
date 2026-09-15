@@ -6,7 +6,11 @@ import { CowSwapModule } from "../../../../../../src/modules/swaps/CowSwapModule
 import { PaymentRails } from "../../../../../../src/core/PaymentRails.sol";
 import { Errors } from "../../../../../../src/libraries/Errors.sol";
 
-import { MockMalformedOwnerTarget, MockOwnerlessTarget } from "../../../../../shared/mocks/MockOwnerlessTarget.sol";
+import {
+    MockDirtyOwnerTarget,
+    MockMalformedOwnerTarget,
+    MockOwnerlessTarget
+} from "../../../../../shared/mocks/MockOwnerlessTarget.sol";
 
 contract Create_CowSwapModuleFactory_Test is CowSwapModuleFactoryBase {
     function test_RevertWhen_OwnerIsZeroAddress() external {
@@ -40,6 +44,15 @@ contract Create_CowSwapModuleFactory_Test is CowSwapModuleFactoryBase {
 
     function test_RevertWhen_PaymentRailsReturnsMalformedOwner() external {
         address target = address(new MockMalformedOwnerTarget());
+        vm.expectRevert(abi.encodeWithSelector(Errors.CowSwapModuleFactory_OwnerLookupFailed.selector, target));
+        factory.create(owner, target);
+    }
+
+    /// @dev A 32-byte answer is not necessarily canonical ABI padding. Decoding it straight to
+    /// `address` would revert inside the ABI decoder with empty revert data, hiding the failure the
+    /// factory documents; the owner word must be validated so the lookup error still surfaces.
+    function test_RevertWhen_PaymentRailsOwnerWordHasDirtyUpperBits() external {
+        address target = address(new MockDirtyOwnerTarget());
         vm.expectRevert(abi.encodeWithSelector(Errors.CowSwapModuleFactory_OwnerLookupFailed.selector, target));
         factory.create(owner, target);
     }

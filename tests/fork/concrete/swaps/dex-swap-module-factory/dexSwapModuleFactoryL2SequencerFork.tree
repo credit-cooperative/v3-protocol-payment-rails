@@ -1,0 +1,14 @@
+DexSwapModuleFactoryL2SequencerFork (Base mainnet)
+├── when the sequencer uptime feed is Base's real Chainlink feed
+│   ├── it should deploy the factory
+│   ├── it should set the sequencer uptime feed
+│   ├── it should set the sequencer grace period
+│   └── it should set the router
+├── when the sequencer uptime feed is an EOA
+│   └── it should revert with DexSwapModuleFactory_SequencerFeedNotContract
+├── when a module is created
+│   ├── it should wire the real sequencer feed into the module
+│   └── it should wire the real sequencer feed through createDeterministic
+└── when the module reads the live feed
+    ├── it should validate a swap while the sequencer is up
+    └── it should reject the swap while the grace period has not elapsed

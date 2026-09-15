@@ -3,7 +3,10 @@ CowSwapModuleFactory_Constructor
 │   └── it should revert with CowSwapModuleFactory_ZeroCowSettlement
 ├── when cowSettlement has no code
 │   └── it should revert with CowSwapModuleFactory_SettlementNotContract
+├── when the sequencer uptime feed is non-zero and has no deployed code
+│   └── it should revert with CowSwapModuleFactory_SequencerFeedNotContract
 └── when cowSettlement is a valid contract
     ├── it should set cowSettlement
     ├── it should set sequencerUptimeFeed
-    └── it should set sequencerGracePeriod
+    ├── it should set sequencerGracePeriod
+    └── it should accept a zero sequencer feed for the L1 profile

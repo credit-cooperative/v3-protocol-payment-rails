@@ -54,6 +54,13 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory {
         if (_cowSettlement.code.length == 0) {
             revert Errors.CowSwapModuleFactory_SettlementNotContract(_cowSettlement);
         }
+        // address(0) is the L1 profile and stays valid. A non-zero EOA is always a misconfiguration:
+        // the module's oracle read would hit the extcodesize check and revert, so every module this
+        // factory deploys could never place an order. The wiring is immutable, so a typo caught here
+        // costs a factory redeployment instead of the factory plus every module under it.
+        if (_sequencerUptimeFeed != address(0) && _sequencerUptimeFeed.code.length == 0) {
+            revert Errors.CowSwapModuleFactory_SequencerFeedNotContract(_sequencerUptimeFeed);
+        }
 
         cowSettlement = _cowSettlement;
         sequencerUptimeFeed = _sequencerUptimeFeed;
@@ -181,7 +188,15 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory {
             revert Errors.CowSwapModuleFactory_OwnerLookupFailed(paymentRails);
         }
 
-        address paymentRailsOwner = abi.decode(returndata, (address));
+        // Decode as a raw word, not as `address`: a 32-byte answer is not necessarily canonical ABI
+        // padding, and `abi.decode(..., (address))` reverts on dirty upper bits with empty revert data
+        // — defeating the explicit lookup failure promised above. Validate the padding ourselves.
+        bytes32 ownerWord = abi.decode(returndata, (bytes32));
+        if (uint256(ownerWord) > type(uint160).max) {
+            revert Errors.CowSwapModuleFactory_OwnerLookupFailed(paymentRails);
+        }
+
+        address paymentRailsOwner = address(uint160(uint256(ownerWord)));
         if (msg.sender != paymentRailsOwner) {
             revert Errors.CowSwapModuleFactory_CallerNotPaymentRailsOwner(msg.sender, paymentRailsOwner);
         }

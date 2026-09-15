@@ -17,6 +17,12 @@ contract Constructor_DexSwapModuleFactory_Test is DexSwapModuleFactoryBase {
         new DexSwapModuleFactory(eoa, sequencerFeed, DEFAULT_GRACE_PERIOD);
     }
 
+    function test_RevertWhen_SequencerFeedIsNotContract() external {
+        address eoa = makeAddr("eoaSequencerFeed");
+        vm.expectRevert(abi.encodeWithSelector(Errors.DexSwapModuleFactory_SequencerFeedNotContract.selector, eoa));
+        new DexSwapModuleFactory(address(router), eoa, DEFAULT_GRACE_PERIOD);
+    }
+
     function test_WhenRouterIsValidContract_ShouldSetRouter() external {
         DexSwapModuleFactory newFactory = new DexSwapModuleFactory(address(router), sequencerFeed, DEFAULT_GRACE_PERIOD);
         assertEq(newFactory.router(), address(router));
