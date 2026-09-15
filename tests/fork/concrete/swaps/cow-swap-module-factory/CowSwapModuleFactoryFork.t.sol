@@ -107,16 +107,19 @@ contract CowSwapModuleFactoryFork_Test is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     function test_Fork_Create_WiresRealDomainSeparator() external {
+        vm.prank(owner);
         address module = factory.create(owner, address(paymentRails));
         assertEq(CowSwapModule(module).cowDomainSeparator(), realDomainSeparator);
     }
 
     function test_Fork_Create_WiresRealVaultRelayer() external {
+        vm.prank(owner);
         address module = factory.create(owner, address(paymentRails));
         assertEq(CowSwapModule(module).vaultRelayer(), GPV2_VAULT_RELAYER);
     }
 
     function test_Fork_Create_RegistersModule() external {
+        vm.prank(owner);
         address module = factory.create(owner, address(paymentRails));
         assertTrue(factory.isDeployedModule(module));
 
@@ -127,9 +130,39 @@ contract CowSwapModuleFactoryFork_Test is Test {
 
     function test_Fork_CreateDeterministic_MatchesPrediction() external {
         address predicted = factory.predictDeterministicAddress(owner, address(paymentRails), DEFAULT_SALT);
+
+        vm.prank(owner);
         address module = factory.createDeterministic(owner, address(paymentRails), DEFAULT_SALT);
+
         assertEq(module, predicted);
         assertEq(CowSwapModule(module).cowDomainSeparator(), realDomainSeparator);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                    AUTHENTICATION AGAINST A REAL PAYMENT RAILS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Proves the registry cannot be poisoned against a live PaymentRails: an attacker calling
+    /// create() with the victim's instance is rejected by the real `owner()` read, so the victim's
+    /// registry entry never lists an attacker-owned module. Not a mock — the owner is read off the
+    /// same PaymentRails that executes the end-to-end order below.
+    function test_Fork_RevertWhen_AttackerCreatesUnderVictimRails() external {
+        address attacker = makeAddr("attacker");
+
+        vm.prank(attacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(Errors.CowSwapModuleFactory_CallerNotPaymentRailsOwner.selector, attacker, owner)
+        );
+        factory.create(attacker, address(paymentRails));
+
+        assertEq(factory.getModulesForPaymentRails(address(paymentRails)).length, 0);
+    }
+
+    /// @dev The real GPv2Settlement is a contract but is not Ownable — a realistic mis-targeting of
+    /// create() at a live address that has code but no resolvable owner.
+    function test_Fork_RevertWhen_TargetIsNotOwnable() external {
+        vm.expectRevert(abi.encodeWithSelector(Errors.CowSwapModuleFactory_OwnerLookupFailed.selector, GPV2_SETTLEMENT));
+        factory.create(owner, GPV2_SETTLEMENT);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -137,7 +170,9 @@ contract CowSwapModuleFactoryFork_Test is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     function test_Fork_FactoryModule_ExecutesRealUsdcOrderViaPaymentRails() external {
-        // Deploy the module through the factory — the exact flow production will use.
+        // Deploy the module through the factory — the exact flow production will use, called by the
+        // PaymentRails owner as the factory now requires.
+        vm.prank(owner);
         address module = factory.create(owner, address(paymentRails));
 
         bytes memory params = CowSwapModule(module)

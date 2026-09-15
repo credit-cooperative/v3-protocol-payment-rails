@@ -7,89 +7,143 @@ import { Errors } from "../../../../../../src/libraries/Errors.sol";
 
 contract CreateDeterministic_CowSwapModuleFactory_Test is CowSwapModuleFactoryBase {
     function test_RevertWhen_OwnerIsZeroAddress() external {
+        vm.prank(railsOwner);
         vm.expectRevert(Errors.CowSwapModuleFactory_ZeroOwner.selector);
         factory.createDeterministic(address(0), paymentRails, DEFAULT_SALT);
     }
 
     function test_RevertWhen_PaymentRailsIsZeroAddress() external {
+        vm.prank(railsOwner);
         vm.expectRevert(Errors.CowSwapModuleFactory_ZeroPaymentRails.selector);
         factory.createDeterministic(owner, address(0), DEFAULT_SALT);
     }
 
-    function test_WhenParamsAreValid_ShouldDeployContract() external {
+    function test_RevertWhen_PaymentRailsIsEOA() external {
+        address eoa = makeAddr("eoaRails");
+        vm.prank(eoa);
+        vm.expectRevert(abi.encodeWithSelector(Errors.CowSwapModuleFactory_PaymentRailsNotContract.selector, eoa));
+        factory.createDeterministic(owner, eoa, DEFAULT_SALT);
+    }
+
+    function test_RevertWhen_CallerIsNotPaymentRailsOwner() external {
+        address attacker = makeAddr("attacker");
+        vm.prank(attacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.CowSwapModuleFactory_CallerNotPaymentRailsOwner.selector, attacker, railsOwner
+            )
+        );
+        factory.createDeterministic(attacker, paymentRails, DEFAULT_SALT);
+    }
+
+    /// @dev predictDeterministicAddress is public, but an unauthorized caller cannot occupy the address
+    /// it returns — so the rails owner's future deployment is not front-runnable.
+    function test_WhenAttackPrevented_PredictedAddressStaysUnoccupied() external {
+        address attacker = makeAddr("attacker");
+        address predicted = factory.predictDeterministicAddress(owner, paymentRails, DEFAULT_SALT);
+
+        vm.prank(attacker);
+        try factory.createDeterministic(owner, paymentRails, DEFAULT_SALT) returns (address) {
+            fail();
+        } catch { }
+
+        assertEq(predicted.code.length, 0);
+
+        vm.prank(railsOwner);
+        assertEq(factory.createDeterministic(owner, paymentRails, DEFAULT_SALT), predicted);
+    }
+
+    function test_WhenCallerIsRailsOwner_ShouldDeployContract() external {
+        vm.prank(railsOwner);
         address module = factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
         assertTrue(module.code.length > 0);
     }
 
-    function test_WhenParamsAreValid_ShouldSetOwner() external {
+    function test_WhenCallerIsRailsOwner_ShouldSetOwner() external {
+        vm.prank(railsOwner);
         address module = factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
         assertEq(CowSwapModule(module).owner(), owner);
     }
 
-    function test_WhenParamsAreValid_ShouldWirePaymentRails() external {
+    function test_WhenCallerIsRailsOwner_ShouldWirePaymentRails() external {
+        vm.prank(railsOwner);
         address module = factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
         assertEq(CowSwapModule(module).paymentRails(), paymentRails);
     }
 
-    function test_WhenParamsAreValid_ShouldDeployToPredictedAddress() external {
+    function test_WhenCallerIsRailsOwner_ShouldDeployToPredictedAddress() external {
         address predicted = factory.predictDeterministicAddress(owner, paymentRails, DEFAULT_SALT);
+        vm.prank(railsOwner);
         address module = factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
         assertEq(module, predicted);
     }
 
-    function test_WhenParamsAreValid_ShouldRegisterModule() external {
+    function test_WhenCallerIsRailsOwner_ShouldRegisterModule() external {
+        vm.prank(railsOwner);
         address module = factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
         assertTrue(factory.isDeployedModule(module));
         assertEq(factory.getModuleCount(), 1);
     }
 
-    function test_WhenParamsAreValid_ShouldEmitEvent() external {
+    function test_WhenCallerIsRailsOwner_ShouldEmitEvent() external {
         address predicted = factory.predictDeterministicAddress(owner, paymentRails, DEFAULT_SALT);
 
         vm.expectEmit(true, true, true, true);
         emit CowSwapModuleCreated(predicted, paymentRails, owner);
 
+        vm.prank(railsOwner);
         factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
     }
 
     function test_RevertWhen_SameSaltReusedWithSameParams() external {
+        vm.prank(railsOwner);
         factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
+
+        vm.prank(railsOwner);
         vm.expectRevert();
         factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
     }
 
     function test_WhenDifferentSaltsUsed_ShouldDeployToDifferentAddresses() external {
+        vm.startPrank(railsOwner);
         address module1 = factory.createDeterministic(owner, paymentRails, bytes32(uint256(1)));
         address module2 = factory.createDeterministic(owner, paymentRails, bytes32(uint256(2)));
+        vm.stopPrank();
         assertTrue(module1 != module2);
     }
 
     function test_WhenSameSaltWithDifferentOwners_ShouldDeployToDifferentAddresses() external {
         address otherOwner = makeAddr("otherOwner");
+
+        vm.startPrank(railsOwner);
         address module1 = factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
         address module2 = factory.createDeterministic(otherOwner, paymentRails, DEFAULT_SALT);
+        vm.stopPrank();
+
         assertTrue(module1 != module2);
     }
 
     function test_WhenSameSaltWithDifferentPaymentRails_ShouldDeployToDifferentAddresses() external {
-        address otherPaymentRails = makeAddr("otherPaymentRails");
+        address otherPaymentRails = deployPaymentRails(railsOwner);
+
+        vm.startPrank(railsOwner);
         address module1 = factory.createDeterministic(owner, paymentRails, DEFAULT_SALT);
         address module2 = factory.createDeterministic(owner, otherPaymentRails, DEFAULT_SALT);
+        vm.stopPrank();
+
         assertTrue(module1 != module2);
     }
 
-    function testFuzz_PredictedAddressMatchesActual(
-        address fuzzOwner,
-        address fuzzPaymentRails,
-        bytes32 fuzzSalt
-    )
-        external
-    {
+    function testFuzz_PredictedAddressMatchesActual(address fuzzOwner, bytes32 fuzzSalt) external {
         vm.assume(fuzzOwner != address(0));
-        vm.assume(fuzzPaymentRails != address(0));
+
+        address fuzzPaymentRails = deployPaymentRails(railsOwner);
 
         address predicted = factory.predictDeterministicAddress(fuzzOwner, fuzzPaymentRails, fuzzSalt);
+
+        vm.prank(railsOwner);
         address actual = factory.createDeterministic(fuzzOwner, fuzzPaymentRails, fuzzSalt);
+
         assertEq(actual, predicted);
     }
 }

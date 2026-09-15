@@ -1,0 +1,12 @@
+ForwardModuleFactory_Fork
+├── when create is called on a real chain
+│   ├── it should deploy a working ForwardModule
+│   └── it should register the module in the factory
+├── when createDeterministic is called on the fork
+│   └── it should deploy to the predicted address
+└── when a factory-deployed module is configured on a PaymentRails
+    ├── it should forward real USDC to the recipient
+    ├── it should forward real WETH to the recipient
+    ├── it should leave no token balance on the module
+    └── when two PaymentRails share the module
+        └── it should forward for both to their own recipients

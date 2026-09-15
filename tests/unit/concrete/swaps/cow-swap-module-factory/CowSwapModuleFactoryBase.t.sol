@@ -3,6 +3,7 @@ pragma solidity ^0.8.29;
 
 import { Test } from "forge-std/src/Test.sol";
 import { CowSwapModuleFactory } from "../../../../../src/modules/swaps/CowSwapModuleFactory.sol";
+import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
 
 import { MockCowSettlement } from "../../../../shared/mocks/MockCowSettlement.sol";
 
@@ -29,8 +30,16 @@ abstract contract CowSwapModuleFactoryBase is Test {
     CowSwapModuleFactory internal factory;
     MockCowSettlement internal cowSettlement;
 
+    /// @dev Owner of `paymentRails` — the only address allowed to deploy modules bound to it.
+    address internal railsOwner;
+
+    /// @dev Initial owner passed to deployed modules; deliberately not the PaymentRails owner so the
+    /// tests prove the two roles are independent.
     address internal owner;
+
+    /// @dev A real PaymentRails, since the factory now reads `owner()` off the target.
     address internal paymentRails;
+
     address internal vaultRelayer;
     address internal sequencerFeed;
 
@@ -40,13 +49,24 @@ abstract contract CowSwapModuleFactoryBase is Test {
 
     function setUp() public virtual {
         owner = makeAddr("owner");
-        paymentRails = makeAddr("paymentRails");
+        railsOwner = makeAddr("railsOwner");
         vaultRelayer = makeAddr("vaultRelayer");
         sequencerFeed = makeAddr("sequencerFeed");
+
+        paymentRails = address(new PaymentRails(railsOwner));
 
         cowSettlement = new MockCowSettlement(DOMAIN_SEPARATOR, vaultRelayer);
 
         // L1 profile: no sequencer uptime feed.
         factory = new CowSwapModuleFactory(address(cowSettlement), address(0), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    HELPERS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Deploys a fresh PaymentRails owned by `instanceOwner`.
+    function deployPaymentRails(address instanceOwner) internal returns (address) {
+        return address(new PaymentRails(instanceOwner));
     }
 }

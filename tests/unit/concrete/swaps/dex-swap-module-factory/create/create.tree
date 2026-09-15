@@ -1,0 +1,14 @@
+DexSwapModuleFactory_Create
+├── when called by any address
+│   ├── it should deploy a new DexSwapModule contract
+│   ├── it should deploy a module reporting the SWAP module type
+│   ├── it should wire the module to the factory chain config
+│   ├── it should register the module in the factory
+│   ├── it should increment the module count
+│   └── it should emit a DexSwapModuleCreated event naming the deployer
+├── when the factory carries an L2 sequencer profile
+│   └── it should wire the sequencer feed and grace period to the module
+└── when called multiple times
+    ├── it should deploy distinct instances
+    ├── it should register all instances in order
+    └── it should wire every instance to the same chain config

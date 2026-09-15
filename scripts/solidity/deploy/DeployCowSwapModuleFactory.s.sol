@@ -41,6 +41,8 @@ contract DeployCowSwapModuleFactory is BaseScript {
         console2.log("");
         console2.log("Then deploy a module per PaymentRails:");
         console2.log("  cast send $COW_SWAP_MODULE_FACTORY_ADDRESS 'create(address,address)' <OWNER> <PAYMENT_RAILS>");
+        console2.log("  NOTE: create() must be called BY the PaymentRails owner (the multi-sig),");
+        console2.log("        not by this deployer key.");
         console2.log("=============================================================");
     }
 }

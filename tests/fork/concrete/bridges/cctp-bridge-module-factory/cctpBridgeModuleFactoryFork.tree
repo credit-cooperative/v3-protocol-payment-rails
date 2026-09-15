@@ -1,0 +1,23 @@
+CCTPBridgeModuleFactory_Fork
+├── when the factory is deployed against the real CCTP contracts
+│   ├── it should deploy successfully
+│   ├── it should reject an EOA tokenMessenger address
+│   └── it should reject an EOA usdc address
+├── when create is called on a real chain
+│   ├── it should wire the module to the real TokenMessengerV2 and USDC
+│   └── it should register the module in the factory
+├── when createDeterministic is called on the fork
+│   └── it should deploy to the predicted address
+├── when a factory-deployed module bridges with a zero fee
+│   ├── it should burn real USDC through the real TokenMessengerV2
+│   └── it should leave no balance or messenger approval on the module
+├── when a factory-deployed module bridges with a non-zero fee
+│   ├── it should burn real USDC through the real TokenMessengerV2
+│   ├── it should emit the computed maxFee in BridgeInitiated
+│   ├── it should report an amountOut matching the estimate
+│   ├── it should net the fee off the full balance in previewExecution
+│   └── it should succeed on the hook path
+├── when a factory-deployed module is offered a non-USDC token
+│   └── it should reject it in validate
+└── when two PaymentRails share the module
+    └── it should bridge for both instances

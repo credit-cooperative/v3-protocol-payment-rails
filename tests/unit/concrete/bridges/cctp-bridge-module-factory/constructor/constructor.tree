@@ -1,0 +1,12 @@
+CCTPBridgeModuleFactory_Constructor
+├── when the tokenMessenger is the zero address
+│   └── it should revert with CCTPBridgeModuleFactory_ZeroTokenMessenger
+├── when the tokenMessenger has no deployed code
+│   └── it should revert with CCTPBridgeModuleFactory_TokenMessengerNotContract
+├── when the usdc address is the zero address
+│   └── it should revert with CCTPBridgeModuleFactory_ZeroUSDC
+├── when the usdc address has no deployed code
+│   └── it should revert with CCTPBridgeModuleFactory_USDCNotContract
+└── when both addresses are valid contracts
+    ├── it should set the tokenMessenger
+    └── it should set the usdc address

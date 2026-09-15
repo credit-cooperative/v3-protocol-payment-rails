@@ -4,6 +4,7 @@ pragma solidity 0.8.29;
 import { ICowSwapModuleFactory } from "../../interfaces/ICowSwapModuleFactory.sol";
 import { CowSwapModule } from "./CowSwapModule.sol";
 import { Errors } from "../../libraries/Errors.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title CowSwapModuleFactory
 /// @author Credit Cooperative
@@ -141,7 +142,7 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev Validates the per-instance deployment parameters shared by both create functions.
-    function _checkCreateParams(address owner, address paymentRails) private pure {
+    function _checkCreateParams(address owner, address paymentRails) private view {
         // Zero owner would brick the module: renounceOwnership is disabled and no one could cancel orders.
         if (owner == address(0)) {
             revert Errors.CowSwapModuleFactory_ZeroOwner();
@@ -149,6 +150,40 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory {
         // Zero paymentRails would make the module unusable: execute() only accepts the wired caller.
         if (paymentRails == address(0)) {
             revert Errors.CowSwapModuleFactory_ZeroPaymentRails();
+        }
+
+        _checkPaymentRailsOwner(paymentRails);
+    }
+
+    /// @dev Reverts unless the caller is the current owner of `paymentRails`.
+    ///
+    /// The registry indexes modules by the PaymentRails they are wired to, and integrators read
+    /// {getModulesForPaymentRails} to discover "the" module for an instance. Without this check any
+    /// address could call {create} with a victim's PaymentRails and an attacker-controlled `owner`,
+    /// planting an attacker-owned module in the victim's registry entry — the victim would then see
+    /// a module that is factory-deployed, correctly wired, and reported under their own PaymentRails,
+    /// while the attacker holds `cancelOrder` rights over it. Requiring the PaymentRails owner to be
+    /// the caller makes every registry entry an assertion that the instance's own owner authorized it.
+    ///
+    /// The owner is read at call time, so an Ownable2Step transfer moves the right to register modules
+    /// along with ownership: only the accepted (current) owner qualifies, never the pending one.
+    function _checkPaymentRailsOwner(address paymentRails) private view {
+        // An EOA cannot own anything, and its staticcall would succeed with empty returndata.
+        if (paymentRails.code.length == 0) {
+            revert Errors.CowSwapModuleFactory_PaymentRailsNotContract(paymentRails);
+        }
+
+        // Low-level call rather than `try`: a contract that returns malformed data for `owner()`
+        // must surface as an explicit lookup failure, not as an uncatchable decoding revert.
+        (bool success, bytes memory returndata) =
+            paymentRails.staticcall(abi.encodeWithSelector(Ownable.owner.selector));
+        if (!success || returndata.length != 32) {
+            revert Errors.CowSwapModuleFactory_OwnerLookupFailed(paymentRails);
+        }
+
+        address paymentRailsOwner = abi.decode(returndata, (address));
+        if (msg.sender != paymentRailsOwner) {
+            revert Errors.CowSwapModuleFactory_CallerNotPaymentRailsOwner(msg.sender, paymentRailsOwner);
         }
     }
 

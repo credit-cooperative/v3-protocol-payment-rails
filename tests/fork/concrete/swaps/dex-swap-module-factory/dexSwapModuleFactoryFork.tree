@@ -1,0 +1,16 @@
+DexSwapModuleFactory_Fork
+├── when the factory is deployed against the real Uniswap V3 router
+│   ├── it should deploy successfully
+│   └── it should reject an EOA router address
+├── when create is called on a real chain
+│   ├── it should wire the module to the real router
+│   └── it should register the module in the factory
+├── when createDeterministic is called on the fork
+│   └── it should deploy to the predicted address
+└── when a factory-deployed module is configured on a PaymentRails
+    ├── it should swap real USDC for WETH through the real router
+    ├── it should swap real WETH for USDC through the real router
+    ├── it should clear the output against the real Chainlink oracle floor
+    ├── it should leave no token balance or router approval on the module
+    └── when two PaymentRails share the module
+        └── it should swap for both instances

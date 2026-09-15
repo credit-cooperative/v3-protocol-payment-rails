@@ -3,18 +3,25 @@ CowSwapModuleFactory_CreateDeterministic
 │   └── it should revert with CowSwapModuleFactory_ZeroOwner
 ├── when paymentRails is zero address
 │   └── it should revert with CowSwapModuleFactory_ZeroPaymentRails
-└── when params are valid
-    ├── it should deploy a new CowSwapModule contract
-    ├── it should set the owner on the deployed module
-    ├── it should wire the module to the PaymentRails
-    ├── it should deploy to the predicted address
-    ├── it should register the module in the factory
-    ├── it should emit a CowSwapModuleCreated event
-    ├── when the same salt is reused with the same params
-    │   └── it should revert
-    ├── when different salts are used
-    │   └── it should deploy to different addresses
-    ├── when the same salt is used with different owners
-    │   └── it should deploy to different addresses
-    └── when the same salt is used with different PaymentRails
-        └── it should deploy to different addresses
+├── when paymentRails is an EOA
+│   └── it should revert with CowSwapModuleFactory_PaymentRailsNotContract
+├── when the caller is not the paymentRails owner
+│   ├── it should revert with CowSwapModuleFactory_CallerNotPaymentRailsOwner
+│   └── it should leave the predicted address unoccupied
+├── when the caller is the paymentRails owner
+│   ├── it should deploy a new CowSwapModule contract
+│   ├── it should set the owner on the deployed module
+│   ├── it should wire the module to the PaymentRails
+│   ├── it should deploy to the predicted address
+│   ├── it should register the module in the factory
+│   └── it should emit a CowSwapModuleCreated event
+├── when the same salt is reused with the same params
+│   └── it should revert
+├── when different salts are used
+│   └── it should deploy to different addresses
+├── when the same salt is used with different owners
+│   └── it should deploy to different addresses
+├── when the same salt is used with different paymentRails
+│   └── it should deploy to different addresses
+└── when fuzzing the prediction
+    └── it should match the deployed address

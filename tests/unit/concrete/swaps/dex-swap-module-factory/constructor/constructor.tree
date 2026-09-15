@@ -1,0 +1,10 @@
+DexSwapModuleFactory_Constructor
+├── when the router is the zero address
+│   └── it should revert with DexSwapModuleFactory_ZeroRouter
+├── when the router has no deployed code
+│   └── it should revert with DexSwapModuleFactory_RouterNotContract
+└── when the router is a valid contract
+    ├── it should set the router
+    ├── it should set the sequencer uptime feed
+    ├── it should set the sequencer grace period
+    └── it should accept a zero sequencer feed for the L1 profile

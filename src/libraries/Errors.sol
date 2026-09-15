@@ -124,6 +124,30 @@ library Errors {
     /// @notice Thrown when attempting to deploy a CowSwapModule with PaymentRails set to the zero address.
     error CowSwapModuleFactory_ZeroPaymentRails();
 
+    /// @notice Thrown when the target PaymentRails address has no deployed code.
+    /// @param paymentRails The address that was rejected.
+    error CowSwapModuleFactory_PaymentRailsNotContract(address paymentRails);
+
+    /// @notice Thrown when the target PaymentRails does not expose a decodable `owner()`.
+    /// @param paymentRails The address whose ownership could not be resolved.
+    error CowSwapModuleFactory_OwnerLookupFailed(address paymentRails);
+
+    /// @notice Thrown when the caller is not the current owner of the target PaymentRails.
+    /// @param caller The unauthorized caller.
+    /// @param paymentRailsOwner The current owner of the target PaymentRails.
+    error CowSwapModuleFactory_CallerNotPaymentRailsOwner(address caller, address paymentRailsOwner);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        DEX SWAP MODULE FACTORY ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the Uniswap V3 router address is the zero address in the factory constructor.
+    error DexSwapModuleFactory_ZeroRouter();
+
+    /// @notice Thrown when the Uniswap V3 router address has no deployed code in the factory constructor.
+    /// @param router The EOA address that was rejected.
+    error DexSwapModuleFactory_RouterNotContract(address router);
+
     /*//////////////////////////////////////////////////////////////////////////
                         CCTP BRIDGE MODULE ERRORS
     //////////////////////////////////////////////////////////////////////////*/
@@ -133,4 +157,22 @@ library Errors {
 
     /// @notice Thrown when the USDC address is the zero address in the constructor.
     error CCTPBridgeModule_ZeroUSDC();
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        CCTP BRIDGE MODULE FACTORY ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the TokenMessengerV2 address is the zero address in the factory constructor.
+    error CCTPBridgeModuleFactory_ZeroTokenMessenger();
+
+    /// @notice Thrown when the TokenMessengerV2 address has no deployed code in the factory constructor.
+    /// @param tokenMessenger The EOA address that was rejected.
+    error CCTPBridgeModuleFactory_TokenMessengerNotContract(address tokenMessenger);
+
+    /// @notice Thrown when the USDC address is the zero address in the factory constructor.
+    error CCTPBridgeModuleFactory_ZeroUSDC();
+
+    /// @notice Thrown when the USDC address has no deployed code in the factory constructor.
+    /// @param usdc The EOA address that was rejected.
+    error CCTPBridgeModuleFactory_USDCNotContract(address usdc);
 }

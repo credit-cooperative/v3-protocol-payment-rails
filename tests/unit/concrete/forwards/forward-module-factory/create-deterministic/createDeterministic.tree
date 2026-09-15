@@ -1,0 +1,14 @@
+ForwardModuleFactory_CreateDeterministic
+├── when the salt is unused
+│   ├── it should deploy a new ForwardModule contract
+│   ├── it should deploy to the predicted address
+│   ├── it should register the module in the factory
+│   └── it should emit a ForwardModuleCreated event naming the deployer
+├── when the same salt is reused
+│   └── it should revert
+├── when different salts are used
+│   └── it should deploy to different addresses
+├── when a different caller uses the same salt
+│   └── it should deploy to the same address the first caller predicted
+└── when fuzzing the salt
+    └── it should match the deployed address

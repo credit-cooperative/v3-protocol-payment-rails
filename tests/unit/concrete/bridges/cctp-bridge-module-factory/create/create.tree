@@ -1,0 +1,12 @@
+CCTPBridgeModuleFactory_Create
+├── when called by any address
+│   ├── it should deploy a new CCTPBridgeModule contract
+│   ├── it should deploy a module reporting the CCTP_BRIDGE module type
+│   ├── it should wire the module to the factory chain config
+│   ├── it should register the module in the factory
+│   ├── it should increment the module count
+│   └── it should emit a CCTPBridgeModuleCreated event naming the deployer
+└── when called multiple times
+    ├── it should deploy distinct instances
+    ├── it should register all instances in order
+    └── it should wire every instance to the same chain config

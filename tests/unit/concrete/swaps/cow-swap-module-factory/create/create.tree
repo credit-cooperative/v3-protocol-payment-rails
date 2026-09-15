@@ -3,16 +3,31 @@ CowSwapModuleFactory_Create
 │   └── it should revert with CowSwapModuleFactory_ZeroOwner
 ├── when paymentRails is zero address
 │   └── it should revert with CowSwapModuleFactory_ZeroPaymentRails
-└── when params are valid
-    ├── it should deploy a new CowSwapModule contract
-    ├── it should set the owner on the deployed module
-    ├── it should wire the module to the PaymentRails
-    ├── it should wire the module to the factory chain config
-    ├── it should register the module in the factory
-    ├── it should increment the module count
-    ├── it should register the module under the PaymentRails lookup
-    ├── it should emit a CowSwapModuleCreated event
-    └── when called multiple times
-        ├── it should deploy distinct instances
-        ├── it should register all instances
-        └── it should accumulate instances in the PaymentRails lookup
+├── when paymentRails is an EOA
+│   └── it should revert with CowSwapModuleFactory_PaymentRailsNotContract
+├── when paymentRails does not expose owner
+│   └── it should revert with CowSwapModuleFactory_OwnerLookupFailed
+├── when paymentRails returns malformed owner data
+│   └── it should revert with CowSwapModuleFactory_OwnerLookupFailed
+├── when the caller is not the paymentRails owner
+│   ├── it should revert with CowSwapModuleFactory_CallerNotPaymentRailsOwner
+│   ├── it should revert for an attacker planting an attacker-owned module
+│   ├── it should leave the victim paymentRails lookup empty
+│   └── it should revert for the pending owner of an in-flight transfer
+├── when the caller is the paymentRails owner
+│   ├── it should deploy a new CowSwapModule contract
+│   ├── it should set the owner on the deployed module
+│   ├── it should allow a module owner different from the paymentRails owner
+│   ├── it should wire the module to the PaymentRails
+│   ├── it should wire the module to the factory chain config
+│   ├── it should register the module in the factory
+│   ├── it should increment the module count
+│   ├── it should register the module under the PaymentRails lookup
+│   ├── it should emit a CowSwapModuleCreated event
+│   └── when called multiple times
+│       ├── it should deploy distinct instances
+│       ├── it should register all instances
+│       └── it should accumulate instances in the PaymentRails lookup
+└── when ownership of the paymentRails is transferred
+    ├── it should reject the previous owner
+    └── it should accept the new owner

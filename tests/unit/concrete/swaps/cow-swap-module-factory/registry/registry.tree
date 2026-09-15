@@ -5,10 +5,13 @@ CowSwapModuleFactory_Registry
 │   ├── it should return zero from getModuleCount
 │   └── it should return an empty array from getModulesForPaymentRails
 ├── given modules deployed
-│   ├── it should return true from isDeployedModule for deployed modules
-│   ├── it should return false from isDeployedModule for non-deployed addresses
+│   ├── it should return true from isDeployedModule for a deployed module
+│   ├── it should return false from isDeployedModule for a non-deployed address
 │   ├── it should return the correct array from getDeployedModules
 │   ├── it should return the correct count from getModuleCount
-│   └── it should separate lookups per PaymentRails
-└── given a mix of CREATE and CREATE2 deployments
-    └── it should track both in the same registry
+│   └── it should keep per-PaymentRails lookups separate
+├── given a mix of create and createDeterministic deployments
+│   └── it should track both in the same registry
+└── given an attacker attempts to poison another instance lookup
+    ├── it should keep the victim lookup empty
+    └── it should only list modules the instance owner deployed

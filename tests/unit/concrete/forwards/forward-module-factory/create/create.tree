@@ -1,0 +1,10 @@
+ForwardModuleFactory_Create
+├── when called by any address
+│   ├── it should deploy a new ForwardModule contract
+│   ├── it should deploy a module reporting the FORWARD module type
+│   ├── it should register the module in the factory
+│   ├── it should increment the module count
+│   └── it should emit a ForwardModuleCreated event naming the deployer
+└── when called multiple times
+    ├── it should deploy distinct instances
+    └── it should register all instances in order
