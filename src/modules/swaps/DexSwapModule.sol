@@ -192,6 +192,7 @@ contract DexSwapModule is IDexSwapModule, ActionModuleBase, ReentrancyGuard {
         if (cfg.maxAmount != 0 && amount > cfg.maxAmount) return (false, "Exceeds max swap amount", cfg);
         if (cfg.sellTokenPriceFeed == address(0)) return (false, "Missing sell token price feed", cfg);
         if (cfg.buyTokenPriceFeed == address(0)) return (false, "Missing buy token price feed", cfg);
+        if (cfg.maxStaleness == 0) return (false, "Zero max staleness", cfg);
         if (cfg.swapDeadlineSeconds == 0) return (false, "Zero swap deadline", cfg);
 
         return (true, "", cfg);

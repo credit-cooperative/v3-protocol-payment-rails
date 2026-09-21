@@ -131,6 +131,22 @@ contract DexSwapModule_Execute_Test is DexSwapModuleBase {
         assertEq(result.failureReason, "Missing buy token price feed", "failureReason");
     }
 
+    function test_WhenMaxStalenessIsZero_ReturnsFailedResult() external {
+        bytes memory params = _buildParamsCustom(
+            address(buyToken),
+            DEFAULT_FEE,
+            DEFAULT_SLIPPAGE_BPS,
+            address(sellFeed),
+            address(buyFeed),
+            0,
+            DEFAULT_SWAP_DEADLINE
+        );
+        DataTypes.ExecutionResult memory result =
+            paymentRails.executeSwap(address(sellToken), DEFAULT_SELL_AMOUNT, params);
+        assertFalse(result.success, "success");
+        assertEq(result.failureReason, "Zero max staleness", "failureReason");
+    }
+
     function test_WhenSwapDeadlineSecondsIsZero_ReturnsFailedResult() external {
         bytes memory params = _buildParamsCustom(
             address(buyToken),
