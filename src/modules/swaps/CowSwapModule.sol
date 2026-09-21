@@ -386,6 +386,9 @@ contract CowSwapModule is ICowSwapModule, ActionModuleBase, Ownable2Step, Reentr
         if (swapParams.buyTokenPriceFeed == address(0)) {
             return (false, "Missing buy token price feed", swapParams, 0);
         }
+        if (swapParams.maxStaleness == 0) {
+            return (false, "Zero max staleness", swapParams, 0);
+        }
         if (swapParams.validityDuration == 0) {
             return (false, "Zero validity duration", swapParams, 0);
         }

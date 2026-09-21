@@ -228,6 +228,22 @@ contract CowSwapModule_Execute_Test is CowSwapModuleBase {
     // when validity duration is zero
     // -----------------------------------------------------------------------
 
+    function test_WhenMaxStalenessIsZero_ReturnsFailedResult() external {
+        bytes memory params = _buildParams(
+            address(buyToken),
+            DEFAULT_SLIPPAGE_BPS,
+            address(sellFeed),
+            address(buyFeed),
+            0,
+            DEFAULT_VALIDITY,
+            DEFAULT_APP_DATA
+        );
+        DataTypes.ExecutionResult memory result =
+            paymentRails.initiateSwap(address(sellToken), DEFAULT_SELL_AMOUNT, params);
+        assertFalse(result.success);
+        assertEq(result.failureReason, "Zero max staleness");
+    }
+
     function test_WhenValidityDurationIsZero_ReturnsFailedResult() external {
         bytes memory params = _buildParams(
             address(buyToken),
