@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+
 import { IPaymentRailsFactory } from "../interfaces/IPaymentRailsFactory.sol";
 import { PaymentRails } from "./PaymentRails.sol";
 import { Errors } from "../libraries/Errors.sol";
@@ -8,7 +11,10 @@ import { Errors } from "../libraries/Errors.sol";
 /// @title PaymentRailsFactory
 /// @author Credit Cooperative
 /// @notice See the documentation in {IPaymentRailsFactory}.
-contract PaymentRailsFactory is IPaymentRailsFactory {
+/// @dev Creation is owner-gated so the on-chain registry only ever lists instances this
+/// organization deployed. Both creation paths are gated: leaving either one open would let anyone
+/// register an instance and defeat the restriction.
+contract PaymentRailsFactory is IPaymentRailsFactory, Ownable2Step {
     /*//////////////////////////////////////////////////////////////////////////
                                     STORAGE
     //////////////////////////////////////////////////////////////////////////*/
@@ -20,35 +26,53 @@ contract PaymentRailsFactory is IPaymentRailsFactory {
     mapping(address instance => bool deployed) private _isDeployedInstance;
 
     /*//////////////////////////////////////////////////////////////////////////
+                                  CONSTRUCTOR
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @param initialOwner Address allowed to create instances. Taken as an argument, not
+    /// `msg.sender`, so the deployer never holds the role and no handover is required.
+    constructor(address initialOwner) Ownable(initialOwner) { }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                OWNERSHIP
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Disables renounceOwnership(): renouncing would leave both creation paths permanently
+    /// uncallable, bricking the factory.
+    function renounceOwnership() public pure override {
+        revert Errors.PaymentRailsFactory_OwnershipCannotBeRenounced();
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
                             DEPLOYMENT FUNCTIONS
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IPaymentRailsFactory
-    function create(address owner) external returns (address paymentRails) {
+    function create(address railsOwner) external onlyOwner returns (address paymentRails) {
         // Checks: Zero owner would lock the PaymentRails since renounceOwnership is disabled.
-        if (owner == address(0)) {
+        if (railsOwner == address(0)) {
             revert Errors.PaymentRailsFactory_ZeroOwner();
         }
 
-        // Interactions: Deploy new PaymentRails with owner.
-        paymentRails = address(new PaymentRails(owner));
+        // Interactions: Deploy new PaymentRails with railsOwner.
+        paymentRails = address(new PaymentRails(railsOwner));
 
         // Effects: Register in the on-chain registry.
-        _register(paymentRails, owner);
+        _register(paymentRails, railsOwner);
     }
 
     /// @inheritdoc IPaymentRailsFactory
-    function createDeterministic(address owner, bytes32 salt) external returns (address paymentRails) {
+    function createDeterministic(address railsOwner, bytes32 salt) external onlyOwner returns (address paymentRails) {
         // Checks: Zero owner would lock the PaymentRails since renounceOwnership is disabled.
-        if (owner == address(0)) {
+        if (railsOwner == address(0)) {
             revert Errors.PaymentRailsFactory_ZeroOwner();
         }
 
         // Interactions: Deploy new PaymentRails with deterministic address.
-        paymentRails = address(new PaymentRails{ salt: salt }(owner));
+        paymentRails = address(new PaymentRails{ salt: salt }(railsOwner));
 
         // Effects: Register in the on-chain registry.
-        _register(paymentRails, owner);
+        _register(paymentRails, railsOwner);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -56,8 +80,8 @@ contract PaymentRailsFactory is IPaymentRailsFactory {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IPaymentRailsFactory
-    function predictDeterministicAddress(address owner, bytes32 salt) external view returns (address predicted) {
-        bytes32 bytecodeHash = keccak256(abi.encodePacked(type(PaymentRails).creationCode, abi.encode(owner)));
+    function predictDeterministicAddress(address railsOwner, bytes32 salt) external view returns (address predicted) {
+        bytes32 bytecodeHash = keccak256(abi.encodePacked(type(PaymentRails).creationCode, abi.encode(railsOwner)));
         predicted =
             address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, bytecodeHash)))));
     }
@@ -82,10 +106,10 @@ contract PaymentRailsFactory is IPaymentRailsFactory {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev Registers a newly deployed instance in the on-chain registry and emits the creation event.
-    function _register(address paymentRails, address owner) private {
+    function _register(address paymentRails, address railsOwner) private {
         _deployedInstances.push(paymentRails);
         _isDeployedInstance[paymentRails] = true;
 
-        emit PaymentRailsCreated(paymentRails, owner);
+        emit PaymentRailsCreated(paymentRails, railsOwner);
     }
 }

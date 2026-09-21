@@ -220,7 +220,7 @@ assert_ge "funder DAI from Uniswap" "$FUNDER_DAI" "9900000000000000000000"
 phase "PHASE 2 — deployment (production deploy scripts)"
 
 step "factories for the per-instance contracts"
-RAILS_FACTORY=$(deploy_script scripts/solidity/deploy/DeployPaymentRailsFactory.s.sol)
+RAILS_FACTORY=$(deploy_script scripts/solidity/deploy/DeployPaymentRailsFactory.s.sol --sig "run(address)" "$RAILS_OWNER")
 COW_FACTORY=$(deploy_script scripts/solidity/deploy/DeployCowSwapModuleFactory.s.sol \
   --sig "run(address,uint256)" "0x0000000000000000000000000000000000000000" 0)
 
@@ -251,7 +251,8 @@ assert_eq "CCTPBridgeModule.usdc" "$(cu $CCTP_MODULE 'usdc()(address)')" "$USDC"
 phase "PHASE 3 — PaymentRailsFactory lifecycle"
 
 step "create() — rails A, owned by the multi-sig stand-in"
-send "$DEPLOYER" "$RAILS_FACTORY" "create(address)" "$RAILS_OWNER" || bad "create()"
+# Both creation paths are owner-gated, so they come from the factory owner, not the deployer.
+send "$RAILS_OWNER" "$RAILS_FACTORY" "create(address)" "$RAILS_OWNER" || bad "create()"
 RAILS_A=$(addr_from_log "rails A" "$RAILS_FACTORY" "PaymentRailsCreated(address,address)")
 ok "rails A = $RAILS_A"
 assert_eq "rails A owner" "$(cu $RAILS_A 'owner()(address)')" "$RAILS_OWNER"
@@ -259,8 +260,9 @@ assert_eq "registry: isDeployedInstance(A)" "$(cu $RAILS_FACTORY 'isDeployedInst
 
 step "createDeterministic() — rails B, address predicted before deployment"
 SALT_B=$(cast keccak "payment-rails-e2e-b")
+SALT_C=$(cast keccak "payment-rails-e2e-c")
 PREDICTED_B=$(cu $RAILS_FACTORY "predictDeterministicAddress(address,bytes32)(address)" "$RAILS_OWNER" "$SALT_B")
-send "$DEPLOYER" "$RAILS_FACTORY" "createDeterministic(address,bytes32)" "$RAILS_OWNER" "$SALT_B" || bad "createDeterministic()"
+send "$RAILS_OWNER" "$RAILS_FACTORY" "createDeterministic(address,bytes32)" "$RAILS_OWNER" "$SALT_B" || bad "createDeterministic()"
 RAILS_B=$(addr_from_log "rails B" "$RAILS_FACTORY" "PaymentRailsCreated(address,address)")
 assert_eq "CREATE2 address matches prediction" "$RAILS_B" "$PREDICTED_B"
 assert_eq "rails B owner" "$(cu $RAILS_B 'owner()(address)')" "$RAILS_OWNER"
@@ -271,9 +273,13 @@ assert_eq "registry: unknown address not an instance" \
 
 step "guard rails"
 send_reverts "create(address(0)) reverts (zero owner would brick the instance)" \
-  "$DEPLOYER" "$RAILS_FACTORY" "create(address)" "0x0000000000000000000000000000000000000000"
+  "$RAILS_OWNER" "$RAILS_FACTORY" "create(address)" "0x0000000000000000000000000000000000000000"
 send_reverts "re-using a salt reverts (CREATE2 collision)" \
-  "$DEPLOYER" "$RAILS_FACTORY" "createDeterministic(address,bytes32)" "$RAILS_OWNER" "$SALT_B"
+  "$RAILS_OWNER" "$RAILS_FACTORY" "createDeterministic(address,bytes32)" "$RAILS_OWNER" "$SALT_B"
+send_reverts "attacker cannot register an instance in the rails factory" \
+  "$ATTACKER" "$RAILS_FACTORY" "create(address)" "$ATTACKER"
+send_reverts "attacker cannot squat a predicted CREATE2 address" \
+  "$ATTACKER" "$RAILS_FACTORY" "createDeterministic(address,bytes32)" "$ATTACKER" "$SALT_C"
 send_reverts "renounceOwnership() is disabled on PaymentRails" \
   "$RAILS_OWNER" "$RAILS_A" "renounceOwnership()"
 

@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+
 import { PaymentRailsFactoryBase } from "../PaymentRailsFactoryBase.t.sol";
 import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
 import { Errors } from "../../../../../src/libraries/Errors.sol";
 
 contract CreateDeterministic_Test is PaymentRailsFactoryBase {
+    function test_RevertWhen_CallerIsNotFactoryOwner() external {
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        factory.createDeterministic(owner, DEFAULT_SALT);
+    }
+
     function test_RevertWhen_OwnerIsZeroAddress() external {
         vm.expectRevert(Errors.PaymentRailsFactory_ZeroOwner.selector);
         factory.createDeterministic(address(0), DEFAULT_SALT);
