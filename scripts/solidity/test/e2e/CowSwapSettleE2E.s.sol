@@ -180,10 +180,13 @@ contract CowSwapSettleE2E is Script {
         interactions[1][0] = GPv2InteractionData({
             target: meta.sellToken, value: 0, callData: abi.encodeCall(IERC20.approve, (cfg.router, meta.sellAmount))
         });
+        // SwapRouter02 has no `deadline` param; it is enforced by the multicall wrapper.
+        bytes[] memory swapBatch = new bytes[](1);
+        swapBatch[0] = abi.encodeCall(ISwapRouter.exactInputSingle, (_swapParams(cfg, meta)));
         interactions[1][1] = GPv2InteractionData({
             target: cfg.router,
             value: 0,
-            callData: abi.encodeCall(ISwapRouter.exactInputSingle, (_swapParams(cfg, meta)))
+            callData: abi.encodeCall(ISwapRouter.multicall, (block.timestamp + 600, swapBatch))
         });
     }
 
@@ -192,7 +195,7 @@ contract CowSwapSettleE2E is Script {
         DataTypes.CowOrderMetadata memory meta
     )
         private
-        view
+        pure
         returns (ISwapRouter.ExactInputSingleParams memory)
     {
         return ISwapRouter.ExactInputSingleParams({
@@ -200,7 +203,6 @@ contract CowSwapSettleE2E is Script {
             tokenOut: meta.buyToken,
             fee: cfg.poolFee,
             recipient: cfg.settlement,
-            deadline: block.timestamp + 600,
             amountIn: meta.sellAmount,
             amountOutMinimum: cfg.buyAmount,
             sqrtPriceLimitX96: 0

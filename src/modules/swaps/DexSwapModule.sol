@@ -18,6 +18,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 /// @author Credit Cooperative
 /// @notice Oracle-only synchronous swap module — the permissionless executor controls nothing.
 /// @dev See {IDexSwapModule} for the full interface. Fee-on-transfer tokens are NOT supported.
+/// @dev Requires Uniswap SwapRouter02 — see {ISwapRouter}.
 contract DexSwapModule is IDexSwapModule, ActionModuleBase, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -38,12 +39,20 @@ contract DexSwapModule is IDexSwapModule, ActionModuleBase, ReentrancyGuard {
                                   CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @param _router Uniswap V3 SwapRouter address (must be a contract).
+    /// @param _router Uniswap V3 SwapRouter02 address; must expose `factory()`. Chain-specific.
     /// @param _sequencerUptimeFeed Chainlink L2 sequencer uptime feed; address(0) on L1.
     /// @param _sequencerGracePeriod Seconds after sequencer recovery before trusting oracles.
     constructor(address _router, address _sequencerUptimeFeed, uint256 _sequencerGracePeriod) {
         if (_router == address(0)) revert Errors.DexSwapModule_ZeroRouter();
         if (_router.code.length == 0) revert Errors.DexSwapModule_RouterNotContract(_router);
+
+        // Code size alone does not prove a router: a foreign chain's router address may hold an
+        // unrelated contract that answers calls without reverting.
+        (bool probeOk, bytes memory probeData) = _router.staticcall(abi.encodeCall(ISwapRouter.factory, ()));
+        if (!probeOk || probeData.length != 32) revert Errors.DexSwapModule_RouterNotUniswap(_router);
+        address uniswapFactory = abi.decode(probeData, (address));
+        if (uniswapFactory.code.length == 0) revert Errors.DexSwapModule_RouterNotUniswap(_router);
+
         router = _router;
         sequencerUptimeFeed = _sequencerUptimeFeed;
         sequencerGracePeriod = _sequencerGracePeriod;
@@ -313,19 +322,23 @@ contract DexSwapModule is IDexSwapModule, ActionModuleBase, ReentrancyGuard {
 
         uint256 buyTokenBefore = IERC20(cfg.targetToken).balanceOf(address(this));
 
-        bytes memory swapCalldata = abi.encodeCall(
+        // SwapRouter02 has no `deadline` param; the multicall wrapper enforces it. Reverts inside
+        // the batch (e.g. `amountOutMinimum` not met) propagate out of `multicall`.
+        bytes[] memory swapBatch = new bytes[](1);
+        swapBatch[0] = abi.encodeCall(
             ISwapRouter.exactInputSingle,
             (ISwapRouter.ExactInputSingleParams({
                     tokenIn: token,
                     tokenOut: cfg.targetToken,
                     fee: cfg.fee,
                     recipient: address(this),
-                    deadline: block.timestamp + cfg.swapDeadlineSeconds,
                     amountIn: amount,
                     amountOutMinimum: oracleFloor,
                     sqrtPriceLimitX96: 0
                 }))
         );
+        bytes memory swapCalldata =
+            abi.encodeCall(ISwapRouter.multicall, (block.timestamp + cfg.swapDeadlineSeconds, swapBatch));
 
         (ok,) = router.call(swapCalldata);
 

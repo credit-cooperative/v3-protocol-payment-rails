@@ -29,7 +29,8 @@ WORKDIR="${E2E_WORKDIR:-$(mktemp -d)}"
 ANVIL_LOG="$WORKDIR/anvil.log"
 
 # ───────────────────────────── mainnet addresses ─────────────────────────────
-UNISWAP_V3_ROUTER=0xE592427A0AEce92De3Edee1F18E0157C05861564
+# Uniswap SwapRouter02 on Ethereum mainnet (the module requires SwapRouter02, not SwapRouter)
+UNISWAP_V3_ROUTER=0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
 GPV2_SETTLEMENT=0x9008D19f58AAbD9eD0D60971565AA8510560ab41
 GPV2_AUTHENTICATOR=0x2c4c28DDBdAc9C5E7055b4C863b72eA0149D8aFE
 TOKEN_MESSENGER_V2=0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d
@@ -196,20 +197,20 @@ phase "PHASE 1 — treasury funding via real protocols"
 # No cheat codes: ETH is wrapped through WETH and swapped on the real Uniswap V3 pools, so every
 # token balance the modules later consume was minted by the same contracts they integrate with.
 
-DEADLINE=99999999999
 step "wrap 60 ETH -> WETH"
 send "$FUNDER" "$WETH" "deposit()" --value 60ether || bad "WETH deposit"
 assert_eq "funder WETH" "$(bal $WETH $FUNDER)" "60000000000000000000"
 
 step "swap 20 WETH -> USDC (0.05% pool) and 10k USDC -> DAI (0.01% pool)"
 send "$FUNDER" "$WETH" "approve(address,uint256)" "$UNISWAP_V3_ROUTER" "$(cast max-uint)" || bad "WETH approve"
+# SwapRouter02 params carry no `deadline` field — see src/interfaces/ISwapRouter.sol
 send "$FUNDER" "$UNISWAP_V3_ROUTER" \
-  "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))" \
-  "($WETH,$USDC,500,$FUNDER,$DEADLINE,20000000000000000000,0,0)" || bad "WETH->USDC swap"
+  "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))" \
+  "($WETH,$USDC,500,$FUNDER,20000000000000000000,0,0)" || bad "WETH->USDC swap"
 send "$FUNDER" "$USDC" "approve(address,uint256)" "$UNISWAP_V3_ROUTER" "$(cast max-uint)" || bad "USDC approve"
 send "$FUNDER" "$UNISWAP_V3_ROUTER" \
-  "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))" \
-  "($USDC,$DAI,100,$FUNDER,$DEADLINE,10000000000,0,0)" || bad "USDC->DAI swap"
+  "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))" \
+  "($USDC,$DAI,100,$FUNDER,10000000000,0,0)" || bad "USDC->DAI swap"
 
 FUNDER_USDC=$(bal $USDC $FUNDER); FUNDER_DAI=$(bal $DAI $FUNDER)
 assert_ge "funder USDC from Uniswap" "$FUNDER_USDC" "30000000000"

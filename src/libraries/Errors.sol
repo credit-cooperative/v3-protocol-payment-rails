@@ -59,6 +59,10 @@ library Errors {
     /// @param router The EOA address that was rejected.
     error DexSwapModule_RouterNotContract(address router);
 
+    /// @notice Thrown when the router has code but does not expose a Uniswap V3 `factory()`.
+    /// @param router The address that failed the Uniswap router probe.
+    error DexSwapModule_RouterNotUniswap(address router);
+
     /// @notice Thrown when actual swap output is below the oracle-computed floor.
     /// @param amountOut Actual output from the swap.
     /// @param oracleFloor Oracle-computed minimum after applying `maxSlippageBps`.
