@@ -26,6 +26,7 @@ abstract contract PaymentRailsFactoryBase is Test {
 
     address internal owner;
     address internal deployer;
+    address internal stranger;
 
     /*//////////////////////////////////////////////////////////////////////////
                                     SET UP
@@ -34,7 +35,10 @@ abstract contract PaymentRailsFactoryBase is Test {
     function setUp() public virtual {
         owner = makeAddr("owner");
         deployer = makeAddr("deployer");
+        stranger = makeAddr("stranger");
 
-        factory = new PaymentRailsFactory();
+        // The test contract is the factory owner, so create() calls in the suites below need no
+        // prank; access control is exercised explicitly from `stranger`.
+        factory = new PaymentRailsFactory(address(this));
     }
 }

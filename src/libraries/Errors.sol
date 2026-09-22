@@ -111,6 +111,9 @@ library Errors {
     /// @notice Thrown when attempting to deploy a PaymentRails with owner set to the zero address.
     error PaymentRailsFactory_ZeroOwner();
 
+    /// @notice Thrown when renouncing ownership of the factory is attempted.
+    error PaymentRailsFactory_OwnershipCannotBeRenounced();
+
     /*//////////////////////////////////////////////////////////////////////////
                         COWSWAP MODULE FACTORY ERRORS
     //////////////////////////////////////////////////////////////////////////*/
