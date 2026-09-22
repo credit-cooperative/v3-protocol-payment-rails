@@ -1,0 +1,21 @@
+AtumModuleFactory_Create
+├── when owner is zero address
+│   └── it should revert with AtumModuleFactory_ZeroOwner
+├── when paymentRails is zero address
+│   └── it should revert with AtumModuleFactory_ZeroPaymentRails
+├── when keeper is zero address
+│   └── it should revert with AtumModuleFactory_ZeroKeeper
+└── when params are valid
+    ├── it should deploy a new AtumModule contract
+    ├── it should set the owner on the deployed module
+    ├── it should wire the module to the PaymentRails
+    ├── it should set the keeper on the deployed module
+    ├── it should wire the module to the factory permit2
+    ├── it should register the module in the factory
+    ├── it should increment the module count
+    ├── it should register the module under the PaymentRails lookup
+    ├── it should emit an AtumModuleCreated event
+    └── when called multiple times
+        ├── it should deploy distinct instances
+        ├── it should register all instances
+        └── it should accumulate instances in the PaymentRails lookup

@@ -1,0 +1,196 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.29;
+
+import { IActionModule } from "./IActionModule.sol";
+import { DataTypes } from "../types/DataTypes.sol";
+import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
+
+/// @title IAtumModule
+/// @notice Minimal PaymentRails-bound Atum payment contract and ERC-1271 Permit2 owner.
+/// @dev One module deployment is bound to one immutable PaymentRails. The PaymentRails funds the
+///      contract through `execute`; the module emits the current available source
+///      balance and destination details for an offchain keeper, and accepts raw Permit2
+///      digests at its ERC-1271 surface. Those digests are validated as presented, against the
+///      keeper alone, and only for callers in {isAuthorizedSignatureCaller} (Certora M-01).
+///
+///      The module does not compute request ids, source assets, fulfillment amounts,
+///      or fees. The keeper derives source details from the log context and prepares
+///      Atum payment requests from the module's available token balance offchain.
+///
+///      Failed deposits, refunds, and unused source balances remain in the module. The
+///      keeper should watch {AtumIntentCreated}, Atum Escrow refund events, and module
+///      token balances to initiate new payment requests from the available balance. For
+///      funds that arrive outside `execute`, the keeper must call {syncAllowance} first:
+///      the Permit2 allowance does not move with the balance, so an unsynced refund is
+///      visible but not pullable.
+interface IAtumModule is IActionModule, IERC1271 {
+    /// @notice Emitted when the module approves Permit2 for a source token.
+    event Permit2ApprovalSet(address indexed token, address indexed permit2, uint256 amount);
+
+    /// @notice Emitted when the owner rotates the keeper.
+    event KeeperSet(address indexed oldKeeper, address indexed newKeeper);
+
+    /// @notice Emitted when the keeper permanently rejects a Permit2 digest.
+    event PermitDigestInvalidated(bytes32 indexed digest);
+
+    /// @notice Emitted when a contract is authorized or de-authorized to call {isValidSignature}.
+    /// @dev Also emitted from the constructor for Permit2, so the full set is recoverable from
+    ///      logs alone rather than only its later edits (the shape Certora I-03 asked for).
+    event SignatureCallerSet(address indexed caller, bool authorized);
+
+    /// @notice Emitted when the owner returns a module-held token balance to the immutable PaymentRails.
+    event TokenBalanceReturned(address indexed token, address indexed paymentRails, uint256 amount);
+
+    /// @notice Emitted when source funds are available for an Atum payment request.
+    /// @param token Source token available in the module.
+    /// @param availableSourceAmount Current module token balance the keeper should use for the payment request.
+    /// @param destinationChain CAIP-2 destination chain identifier.
+    /// @param destinationAccount Destination account identifier for the Atum payment request.
+    /// @param destinationAsset CAIP-19 destination asset identifier for the Atum payment request.
+    event AtumIntentCreated(
+        address indexed token,
+        uint256 availableSourceAmount,
+        string destinationChain,
+        string destinationAccount,
+        string destinationAsset
+    );
+
+    /// @notice Permit2 contract used by Atum Escrow on this source chain.
+    function permit2() external view returns (address);
+
+    /// @notice Immutable PaymentRails allowed to call `execute` and receive fail-safe recovery returns.
+    function paymentRails() external view returns (address);
+
+    /// @notice Keeper that authorises Permit2 digests and invalidates abandoned ones.
+    /// @dev Signs the Permit2 digest as Permit2 builds it. The module applies no wrap, so the
+    ///      keeper's signing policy can still read the `PermitWitnessTransferFrom` struct it is
+    ///      approving. Also the sole caller of {syncAllowance}.
+    function keeper() external view returns (address);
+
+    /// @notice Whether `caller` may receive an answer from `isValidSignature`.
+    /// @dev Certora M-01. Permit2 is authorized at construction; anything else is an explicit
+    ///      owner decision. An unauthorized caller gets the ERC-1271 failure value, including
+    ///      an `eth_call` with no `from` -- keeper tooling that simulates must set `from` to an
+    ///      authorized address or it will read a false negative.
+    function isAuthorizedSignatureCaller(address caller) external view returns (bool);
+
+    /// @notice Owner-only authorization of a contract that may call {isValidSignature}.
+    /// @dev Certora M-01, and specifically the part of it that is NOT about Permit2. A keeper
+    ///      signature is a bearer token at every ERC-1271 surface treating this module as a
+    ///      signer, and the report is explicit that "the problem is not specific to Permit2".
+    ///      Restricting the caller bounds a signature to applications that were deliberately
+    ///      trusted.
+    ///
+    ///      IT DOES NOT PREVENT THE REPLAY BY ITSELF. Two modules sharing a keeper sit behind
+    ///      the SAME Permit2, so both authorize it and both validate the same
+    ///      `(hash, signature)` pair if asked. What prevents it is Atum Escrow: `depositId` is
+    ///      `keccak256(depositor, depositSignature, nonce)` and must equal the `depositId` in a
+    ///      reserve witness the RESERVER signed, so replaying against a second module needs a
+    ///      fresh reserver signature naming it. Escrow checks that before calling Permit2.
+    ///
+    ///      Which is exactly why this allowlist matters: it makes Escrow the only application
+    ///      that can reach this surface, so that argument covers every path rather than one.
+    ///
+    ///      Adding venues is an expected use of this function, not an exceptional one -- the
+    ///      module is meant to be pointable at wherever funds need to go. What does NOT come
+    ///      with a new venue is the replay protection above. Before authorizing one, establish
+    ///      where in ITS flow this module's address is bound, the way Escrow binds it through
+    ///      `depositId`; if nothing does, a keeper signature is replayable between every module
+    ///      sharing that keeper through that venue, and distinct keepers is all that is left.
+    function setSignatureCaller(address caller, bool authorized) external;
+
+    /// @notice Destination route the currently-staged balance was pulled for, as
+    ///         `keccak256(abi.encode(AtumPaymentParams))`. Zero when nothing is staged.
+    /// @dev Certora L-04. `execute` refuses a different route while the token balance is
+    ///      non-zero, because the module holds one fungible balance per token and the keeper
+    ///      sweeps all of it -- so funds staged for one destination would otherwise be payable to
+    ///      the next one configured. `validate` applies the same guard, so a preview cannot
+    ///      report success for a call `execute` would refuse. Cleared by `returnTokenBalance`.
+    ///
+    ///      SCOPE, STATED NARROWLY BECAUSE THE OVER-READING IS DANGEROUS. This closes exactly one
+    ///      thing: a PaymentRails reconfiguration silently redirecting a balance the module is
+    ///      holding and has not yet released. It is NOT settlement attribution, and it does not
+    ///      make the module request-scoped. Specifically:
+    ///
+    ///      * It is cleared only by `returnTokenBalance`, never by settlement -- the module gets
+    ///        no notification of a Permit2 pull. After Escrow drains the balance the record still
+    ///        names the old route while the balance is zero, so the `balanceOf > 0` term lets the
+    ///        next route stage over it.
+    ///      * An Escrow refund arriving after that point merges into one fungible balance and is
+    ///        swept under the NEW route, whether by `syncAllowance`, by a further `execute`, or
+    ///        after a `returnTokenBalance` sweep and unpause. The module cannot tell refunded
+    ///        funds apart from fresh ones.
+    ///      * The guard is symmetric, so it also refuses the CORRECTIVE change: once a refund for
+    ///        the old route sits under the new route's record, pointing PaymentRails back at the
+    ///        old route fails too. The on-chain exit is pause + `returnTokenBalance`, which
+    ///        returns funds to PaymentRails rather than paying them out.
+    ///
+    ///      Destination selection is a keeper property, not a module invariant. The module never
+    ///      enforced where funds go: {AtumIntentCreated} is a signal, the keeper builds the
+    ///      Permit2 request off-chain, and {syncAllowance} deliberately does not stage a route.
+    ///      Attributing a refund to the request that produced it is keeper work, and the keeper
+    ///      has the request ids and Escrow events needed to do it.
+    function stagedRoute(address token) external view returns (bytes32);
+
+    /// @notice Re-points the Permit2 allowance at the module's current balance.
+    /// @dev Keeper-only recovery path for funds that arrive outside `execute` -- Escrow refunds
+    ///      and failed deposits. Without it those funds are unreachable whenever PaymentRails
+    ///      has nothing left to pull, because the allowance was only ever refreshed by `execute`
+    ///      (Certora L-02). Returns the new allowance, which equals the module's balance.
+    ///
+    ///      Callable only by the keeper and only while NOT paused, so it cannot contend with
+    ///      `returnTokenBalance`, which is owner-only while paused and revokes the allowance to
+    ///      zero. Does not change {stagedRoute}: it restores the allowance and does not stage a
+    ///      new destination.
+    function syncAllowance(address token) external returns (uint256 available);
+
+    /// @notice Returns whether a Permit2 digest has been permanently invalidated.
+    /// @dev Keyed on the digest exactly as Permit2 presents it to `isValidSignature`.
+    function isPermitDigestInvalidated(bytes32 digest) external view returns (bool);
+
+    /// @notice Source amount per token that Permit2 is currently approved to pull.
+    /// @dev Set by `execute` and `syncAllowance` to the module's CURRENT balance, and reset to 0
+    ///      by `returnTokenBalance` (which also revokes Permit2 to 0). It is NOT a cumulative
+    ///      counter: it was one until Certora L-03/I-05, and a monotonic counter necessarily
+    ///      disagrees with the balance in both directions -- too high after Permit2 pulls, too
+    ///      low after a refund or a donation, the latter bricking the keeper's request against a
+    ///      smaller allowance. The invariant now is
+    ///      `pendingAmount(token) == IERC20(token).allowance(this, permit2) == balanceOf(this)`
+    ///      as of the last `execute` or `syncAllowance`.
+    function pendingAmount(address token) external view returns (uint256);
+
+    /// @notice Owner-only keeper rotation.
+    function setKeeper(address newKeeper) external;
+
+    /// @notice Owner-only pause.
+    /// @dev While paused, `execute` is blocked, `validate` fails, ERC-1271 validation rejects
+    ///      all signatures, {syncAllowance} is blocked, and return-to-PaymentRails recovery is
+    ///      enabled.
+    function pause() external;
+
+    /// @notice Owner-only unpause after abandoned floating Permit2 digests have been invalidated or expired.
+    function unpause() external;
+
+    /// @notice Keeper- or owner-callable permanent invalidation of an abandoned Permit2 digest.
+    /// @dev Pass the Permit2 digest -- the same value Permit2 presents to `isValidSignature`.
+    function invalidateDigest(bytes32 digest) external;
+
+    /// @notice Keeper- or owner-callable permanent invalidation of multiple abandoned Permit2 digests.
+    /// @dev Permit2 digests, as for {invalidateDigest}.
+    function invalidateDigests(bytes32[] calldata digests) external;
+
+    /// @notice Owner-only paused recovery that returns the full current token balance to the immutable PaymentRails.
+    /// @dev Also resets {pendingAmount} and {stagedRoute} to zero and revokes the Permit2
+    ///      allowance, so no recorded approval or destination outlives the funds it described.
+    function returnTokenBalance(address token) external returns (uint256 amountReturned);
+
+    /// @notice Owner-only paused recovery: returns full current balances for multiple tokens to the immutable
+    /// PaymentRails.
+    function returnTokenBalances(address[] calldata tokens) external;
+
+    /// @notice ABI-encodes Atum payment params for `PaymentRails.configureToken`.
+    function encodeParams(DataTypes.AtumPaymentParams calldata params) external pure returns (bytes memory encoded);
+
+    /// @notice Decodes Atum payment params from `PaymentRails.configureToken`.
+    function decodeParams(bytes calldata encoded) external pure returns (DataTypes.AtumPaymentParams memory params);
+}

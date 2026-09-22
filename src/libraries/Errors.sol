@@ -158,4 +158,90 @@ library Errors {
 
     /// @notice Thrown when the USDC address is the zero address in the constructor.
     error CCTPBridgeModule_ZeroUSDC();
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        ATUM PAYMENT MODULE ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the Permit2 address is the zero address in the constructor.
+    error AtumModule_ZeroPermit2();
+
+    /// @notice Thrown when the Permit2 address supplied to an AtumModule has no code.
+    /// @dev The module used to reject an EOA only as a side effect of calling DOMAIN_SEPARATOR()
+    ///      on it in the constructor. That call was dead state (it was stored and never read) and
+    ///      has been removed, so the check it accidentally provided is now explicit. The factory
+    ///      has an equivalent check of its own; this one covers modules constructed directly.
+    error AtumModule_Permit2NotContract(address permit2);
+
+    /// @notice Thrown when `renounceOwnership` is called on an AtumModule.
+    /// @dev The module must always retain an owner: keeper rotation, pause/unpause, the
+    ///      `onlyOwner whenPaused` recovery sweep and `setSignatureCaller` all depend on one
+    ///      existing. Renouncing would also freeze the ERC-1271 caller set permanently.
+    error AtumModule_RenounceOwnershipDisabled();
+
+    /// @notice Thrown when a transfer debited the sender by something other than `amount`.
+    /// @dev Certora I-06. The received amount was already checked; this covers the other side,
+    ///      where a sender-paid fee leaves PaymentRails down more than the module gained.
+    error AtumModule_UnsupportedTokenDebitedAmount(uint256 expected, uint256 debited);
+
+    /// @notice Thrown when the immutable PaymentRails address is the zero address in the constructor.
+    error AtumModule_ZeroPaymentRails();
+
+    /// @notice Thrown when a caller is not the immutable PaymentRails.
+    /// @param caller Unauthorized caller.
+    /// @param paymentRails Immutable PaymentRails authorized to call.
+    error AtumModule_NotPaymentRails(address caller, address paymentRails);
+
+    /// @notice Thrown when the keeper address is the zero address.
+    error AtumModule_ZeroKeeper();
+
+    /// @notice Thrown when a caller is not the current keeper.
+    /// @param caller Unauthorized caller.
+    /// @param keeper Current keeper authorized to call.
+    error AtumModule_NotKeeper(address caller, address keeper);
+
+    /// @notice Thrown when authorizing the zero address as an ERC-1271 caller.
+    /// @dev Certora M-01. `address(0)` is what an `eth_call` with no `from` presents as, so
+    ///      authorizing it would hand the magic value to every off-chain probe.
+    error AtumModule_ZeroSignatureCaller();
+
+    /// @notice Thrown when a token address is zero.
+    error AtumModule_ZeroToken();
+
+    /// @notice Thrown when attempting to invalidate the zero digest.
+    error AtumModule_ZeroDigest();
+
+    /// @notice Thrown when the module receives less or more than the exact amount requested.
+    /// @param expected Amount requested from the PaymentRails.
+    /// @param actual Balance delta observed by the module.
+    error AtumModule_UnsupportedTokenReceivedAmount(uint256 expected, uint256 actual);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        ATUM PAYMENT MODULE FACTORY ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the factory is constructed with a zero Permit2 address.
+    error AtumModuleFactory_ZeroPermit2();
+
+    /// @notice Thrown when the factory is constructed with a Permit2 address that has no code.
+    /// @param permit2 The address supplied as Permit2.
+    error AtumModuleFactory_Permit2NotContract(address permit2);
+
+    /// @notice Thrown when a module is created with a zero owner address.
+    error AtumModuleFactory_ZeroOwner();
+
+    /// @notice Thrown when a module is created with a zero PaymentRails address.
+    error AtumModuleFactory_ZeroPaymentRails();
+
+    /// @notice Thrown when a module is created with a zero keeper address.
+    error AtumModuleFactory_ZeroKeeper();
+
+    /// @notice Thrown when a module is created for a PaymentRails the caller does not own.
+    /// @dev Certora L-01. Creation used to be permissionless, so anyone could deploy a module
+    ///      naming a victim's PaymentRails and have it recorded against them in the registry.
+    error AtumModuleFactory_NotPaymentRailsOwner(address caller, address paymentRailsOwner);
+
+    /// @notice Thrown when the supplied PaymentRails address has no code.
+    /// @dev Reading `owner()` off an EOA would revert opaquely; fail with a named error instead.
+    error AtumModuleFactory_PaymentRailsNotContract(address paymentRails);
 }

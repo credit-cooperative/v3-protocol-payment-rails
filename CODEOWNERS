@@ -12,8 +12,8 @@
 
 # Contrib modules — CC core review required to merge; per-module
 # overrides added below as contrib modules land.
-/src/modules/contrib/  @credit-cooperative/core-team
-# /src/modules/contrib/bridges/AtumBridgeModule.sol  @atum-team @credit-cooperative/core-team
+/src/modules/contrib/                          @credit-cooperative/core-team
+/src/modules/contrib/bridges/AtumModule.sol    @atum-labs @credit-cooperative/core-team
 
 # Tests
 /tests/                @credit-cooperative/core-team
