@@ -140,14 +140,8 @@ library Errors {
     /// @param paymentRails The address that was rejected.
     error CowSwapModuleFactory_PaymentRailsNotContract(address paymentRails);
 
-    /// @notice Thrown when the target PaymentRails does not expose a decodable `owner()`.
-    /// @param paymentRails The address whose ownership could not be resolved.
-    error CowSwapModuleFactory_OwnerLookupFailed(address paymentRails);
-
-    /// @notice Thrown when the caller is not the current owner of the target PaymentRails.
-    /// @param caller The unauthorized caller.
-    /// @param paymentRailsOwner The current owner of the target PaymentRails.
-    error CowSwapModuleFactory_CallerNotPaymentRailsOwner(address caller, address paymentRailsOwner);
+    /// @notice Thrown when renouncing ownership of the factory is attempted.
+    error CowSwapModuleFactory_OwnershipCannotBeRenounced();
 
     /*//////////////////////////////////////////////////////////////////////////
                         CCTP BRIDGE MODULE ERRORS

@@ -49,6 +49,7 @@ contract CowSwapModuleFactoryL2SequencerFork_Test is Test {
     CowSwapModuleFactory internal factory;
     PaymentRails internal paymentRails;
 
+    address internal factoryOwner;
     address internal railsOwner;
     address internal moduleOwner;
 
@@ -64,11 +65,12 @@ contract CowSwapModuleFactoryL2SequencerFork_Test is Test {
 
         vm.createSelectFork("base", FORK_BLOCK);
 
+        factoryOwner = makeAddr("factoryOwner");
         railsOwner = makeAddr("railsOwner");
         moduleOwner = makeAddr("moduleOwner");
 
         paymentRails = new PaymentRails(railsOwner);
-        factory = new CowSwapModuleFactory(GPV2_SETTLEMENT, SEQUENCER_UPTIME_FEED, GRACE_PERIOD);
+        factory = new CowSwapModuleFactory(factoryOwner, GPV2_SETTLEMENT, SEQUENCER_UPTIME_FEED, GRACE_PERIOD);
 
         // validate() measures the caller's balance, so fund this contract as the would-be PaymentRails.
         deal(WETH, address(this), WETH_SELL_AMOUNT * 10);
@@ -85,7 +87,7 @@ contract CowSwapModuleFactoryL2SequencerFork_Test is Test {
     }
 
     function _createModule(CowSwapModuleFactory target) internal returns (CowSwapModule) {
-        vm.prank(railsOwner);
+        vm.prank(factoryOwner);
         return CowSwapModule(target.create(moduleOwner, address(paymentRails)));
     }
 
@@ -102,7 +104,7 @@ contract CowSwapModuleFactoryL2SequencerFork_Test is Test {
     function test_RevertWhen_SequencerFeedIsEOA() external {
         address eoa = makeAddr("eoaSequencerFeed");
         vm.expectRevert(abi.encodeWithSelector(Errors.CowSwapModuleFactory_SequencerFeedNotContract.selector, eoa));
-        new CowSwapModuleFactory(GPV2_SETTLEMENT, eoa, GRACE_PERIOD);
+        new CowSwapModuleFactory(factoryOwner, GPV2_SETTLEMENT, eoa, GRACE_PERIOD);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -119,7 +121,7 @@ contract CowSwapModuleFactoryL2SequencerFork_Test is Test {
     function test_WhenCreateDeterministic_ShouldWireTheRealSequencerFeed() external {
         address predicted = factory.predictDeterministicAddress(moduleOwner, address(paymentRails), DEFAULT_SALT);
 
-        vm.prank(railsOwner);
+        vm.prank(factoryOwner);
         CowSwapModule module =
             CowSwapModule(factory.createDeterministic(moduleOwner, address(paymentRails), DEFAULT_SALT));
 
@@ -146,7 +148,8 @@ contract CowSwapModuleFactoryL2SequencerFork_Test is Test {
     /// same live feed must block the order. Without this, a feed that is merely present but never
     /// consulted would pass the test above.
     function test_WhenGracePeriodHasNotElapsed_ShouldRejectTheOrder() external {
-        CowSwapModuleFactory strictFactory = new CowSwapModuleFactory(GPV2_SETTLEMENT, SEQUENCER_UPTIME_FEED, 365 days);
+        CowSwapModuleFactory strictFactory =
+            new CowSwapModuleFactory(factoryOwner, GPV2_SETTLEMENT, SEQUENCER_UPTIME_FEED, 365 days);
         CowSwapModule module = _createModule(strictFactory);
 
         (bool isValid, string memory reason) = module.validate(WETH, WETH_SELL_AMOUNT, _swapParams());
