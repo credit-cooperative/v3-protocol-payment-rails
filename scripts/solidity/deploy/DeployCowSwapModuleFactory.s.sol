@@ -17,6 +17,14 @@ import { BaseScript } from "../Base.s.sol";
 ///        source .env && forge script scripts/solidity/deploy/DeployCowSwapModuleFactory.s.sol \
 ///          --sig "run(address,address,uint256)" <FACTORY_OWNER> <SEQUENCER_FEED_OR_0x0> <GRACE_PERIOD> \
 ///          --rpc-url $BASE_RPC_URL --broadcast -vvvv
+///
+///      <SEQUENCER_FEED_OR_0x0> and <GRACE_PERIOD> are two halves of one guard and the constructor
+///      rejects a pair that cannot work, so they must be set together:
+///        - L1 profile (Ethereum, Avalanche C-Chain, Sepolia): pass 0x0 and 0.
+///        - L2 profile (Base, Arbitrum, Optimism): pass the chain's Chainlink L2 Sequencer Uptime
+///          Feed and a grace period in (0, 1 days]. Chainlink's reference uses 3600.
+///      Copying the L1 invocation to an L2 and changing only the feed is the mistake this rejects:
+///      a zero grace period would reduce the module's check to `uint256 < 0`, which is never true.
 contract DeployCowSwapModuleFactory is BaseScript {
     address internal constant GPV2_SETTLEMENT = 0x9008D19f58AAbD9eD0D60971565AA8510560ab41;
 

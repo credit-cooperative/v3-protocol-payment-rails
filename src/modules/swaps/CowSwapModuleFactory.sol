@@ -27,6 +27,9 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory, Ownable2Step {
     /// @inheritdoc ICowSwapModuleFactory
     uint256 public immutable override sequencerGracePeriod;
 
+    /// @dev Upper bound on `sequencerGracePeriod`; catches a units slip. Chainlink's reference uses 3600.
+    uint256 private constant MAX_SEQUENCER_GRACE_PERIOD = 1 days;
+
     /*//////////////////////////////////////////////////////////////////////////
                                     STORAGE
     //////////////////////////////////////////////////////////////////////////*/
@@ -73,6 +76,16 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory, Ownable2Step {
         // costs a factory redeployment instead of the factory plus every module under it.
         if (_sequencerUptimeFeed != address(0) && _sequencerUptimeFeed.code.length == 0) {
             revert Errors.CowSwapModuleFactory_SequencerFeedNotContract(_sequencerUptimeFeed);
+        }
+        // The feed and the grace period are two halves of one guard, so they must agree. A zero
+        // grace period makes the module's check `block.timestamp - startedAt < 0` — never true for
+        // uint256 — deleting the guard rather than shortening it.
+        if (_sequencerUptimeFeed == address(0)) {
+            if (_sequencerGracePeriod != 0) {
+                revert Errors.CowSwapModuleFactory_GracePeriodWithoutFeed(_sequencerGracePeriod);
+            }
+        } else if (_sequencerGracePeriod == 0 || _sequencerGracePeriod > MAX_SEQUENCER_GRACE_PERIOD) {
+            revert Errors.CowSwapModuleFactory_InvalidGracePeriod(_sequencerGracePeriod);
         }
 
         cowSettlement = _cowSettlement;

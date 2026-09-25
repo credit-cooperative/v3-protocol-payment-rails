@@ -24,6 +24,9 @@ abstract contract CowSwapModuleFactoryBase is Test {
     bytes32 internal constant DEFAULT_SALT = bytes32(uint256(1));
     uint256 internal constant DEFAULT_GRACE_PERIOD = 3600;
 
+    /// @dev Mirrors MAX_SEQUENCER_GRACE_PERIOD in CowSwapModuleFactory.
+    uint256 internal constant MAX_GRACE_PERIOD = 1 days;
+
     /*//////////////////////////////////////////////////////////////////////////
                                 TEST CONTRACTS
     //////////////////////////////////////////////////////////////////////////*/
