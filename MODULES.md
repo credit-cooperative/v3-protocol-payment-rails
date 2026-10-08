@@ -13,11 +13,10 @@ This file tracks every module shipped in this repo, its tier, maintainer, and au
 
 ## Community modules
 
-_None yet. Add a row when merging a PR that adds a `src/modules/contrib/<category>/<Module>.sol`._
-
-| Path                                                          | Tier      | Maintainer                           | Audit Status | Upstream                           |
-| ------------------------------------------------------------- | --------- | ------------------------------------ | ------------ | ---------------------------------- |
-| _example: `src/modules/contrib/bridges/AtumBridgeModule.sol`_ | _contrib_ | _@atum-team (security@atum.example)_ | _unaudited_  | _https://github.com/atum-team/..._ |
+| Path                                                | Tier    | Maintainer                         | Audit Status | Upstream                                                             |
+| --------------------------------------------------- | ------- | ---------------------------------- | ------------ | -------------------------------------------------------------------- |
+| `src/modules/contrib/bridges/AtumModule.sol`        | contrib | @atum-labs (security@atumlabs.xyz) | unaudited    | https://github.com/Atum-Labs/credit-cooperative-keeper               |
+| `src/modules/contrib/bridges/AtumModuleFactory.sol` | contrib | @atum-labs (security@atumlabs.xyz) | unaudited    | Borrower-specific factory for AtumModule (CREATE/CREATE2 + registry) |
 
 ## Audit status values
 

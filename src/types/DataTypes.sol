@@ -125,4 +125,20 @@ library DataTypes {
         /// @dev Arbitrary bytes for destination-chain post-mint automation. Empty = no hook.
         bytes hookData;
     }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        ATUM PAYMENT MODULE TYPES
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Parameters stored in PaymentRails's moduleParams for an Atum payment action.
+    /// @dev These fields are emitted for the off-chain Atum keeper. The module does
+    ///      not interpret Atum Escrow routes or witness formats.
+    /// @param destinationChain CAIP-2 destination chain identifier, e.g. `eip155:8453`.
+    /// @param destinationAccount Destination account identifier for the Atum payment request.
+    /// @param destinationAsset CAIP-19 destination asset identifier for the Atum payment request.
+    struct AtumPaymentParams {
+        string destinationChain;
+        string destinationAccount;
+        string destinationAsset;
+    }
 }
