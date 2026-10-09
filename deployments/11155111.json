@@ -2,6 +2,20 @@
   "chain": "sepolia",
   "chainId": 11155111,
   "contracts": {
+    "AtumModuleFactory": {
+      "address": "0xc55188a565e53fb1573cc27962da597c6fe3fe9d",
+      "blockNumber": 11877921,
+      "commit": "a3c613e",
+      "deployer": "0xf2a48133d17d27a3cb03b281fa961749272d5296",
+      "timestamp": "2026-10-09T14:23:59.100Z",
+      "txHash": "0x377bd21ca0a1430e7ee44a10b83947a88c5406dc8de886e1f1bf0d60766507d1",
+      "version": "1.0.0",
+      "constructorArgs": [
+        "0x023A86c6e2fA035172f0106356cf5E27837c0b28",
+        "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+        "0x0000DD52479DE7B800b2f72323A2Ba01150Db254"
+      ]
+    },
     "CCTPBridgeModule": {
       "address": "0x8efffbb37b5a13c859d3e7cdf378749455bf5163",
       "blockNumber": 11757957,
