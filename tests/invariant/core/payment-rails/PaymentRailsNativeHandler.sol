@@ -2,6 +2,7 @@
 pragma solidity ^0.8.29;
 
 import { Test } from "forge-std/src/Test.sol";
+import { VmSafe } from "forge-std/src/Vm.sol";
 
 import { PaymentRails } from "../../../../src/core/PaymentRails.sol";
 import { Errors } from "../../../../src/libraries/Errors.sol";
@@ -66,7 +67,13 @@ contract PaymentRailsNativeHandler is Test {
         amount = bound(amount, 1, 100 ether);
         vm.deal(address(stipendSender), amount);
 
-        stipendSender.sendWithTransfer(payable(address(rails)), amount);
+        // Coverage instrumentation inflates receive() past the stipend; the stipend path is proven on the
+        // optimized artifact, so under coverage this action degrades to a full-gas call.
+        if (vm.isContext(VmSafe.ForgeContext.Coverage)) {
+            assertTrue(stipendSender.sendWithCall(payable(address(rails)), amount), "handler: native send failed");
+        } else {
+            stipendSender.sendWithTransfer(payable(address(rails)), amount);
+        }
 
         ghost_nativeSent += amount;
     }
