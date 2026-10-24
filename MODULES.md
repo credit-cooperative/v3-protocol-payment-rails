@@ -4,12 +4,15 @@ This file tracks every module shipped in this repo, its tier, maintainer, and au
 
 ## First-party modules
 
-| Path                                       | Tier        | Maintainer                    | Audit Status | Notes                                       |
-| ------------------------------------------ | ----------- | ----------------------------- | ------------ | ------------------------------------------- |
-| `src/modules/forwards/ForwardModule.sol`   | first-party | @credit-cooperative/core-team | unaudited    | 1:1 transfer to configured recipient        |
-| `src/modules/swaps/DexSwapModule.sol`      | first-party | @credit-cooperative/core-team | unaudited    | Atomic swap via whitelisted Uniswap routers |
-| `src/modules/swaps/CowSwapModule.sol`      | first-party | @credit-cooperative/core-team | unaudited    | CoW Protocol order book integration         |
-| `src/modules/bridges/CCTPBridgeModule.sol` | first-party | @credit-cooperative/core-team | unaudited    | Circle CCTP integration                     |
+| Path                                         | Tier        | Maintainer                    | Audit Status | Notes                                             |
+| -------------------------------------------- | ----------- | ----------------------------- | ------------ | ------------------------------------------------- |
+| `src/modules/forwards/ForwardModule.sol`     | first-party | @credit-cooperative/core-team | unaudited    | 1:1 transfer to configured recipient              |
+| `src/modules/swaps/DexSwapModule.sol`        | first-party | @credit-cooperative/core-team | unaudited    | Atomic swap via whitelisted Uniswap routers       |
+| `src/modules/swaps/CowSwapModule.sol`        | first-party | @credit-cooperative/core-team | unaudited    | CoW Protocol order book integration               |
+| `src/modules/bridges/CCTPBridgeModule.sol`   | first-party | @credit-cooperative/core-team | unaudited    | Circle CCTP integration                           |
+| `src/modules/native/WrapModule.sol`          | first-party | @credit-cooperative/core-team | unaudited    | Native value in, wrapped-native back to the rails |
+| `src/modules/native/UnwrapModule.sol`        | first-party | @credit-cooperative/core-team | unaudited    | Wrapped-native in, native value back to the rails |
+| `src/modules/native/NativeForwardModule.sol` | first-party | @credit-cooperative/core-team | unaudited    | Native value in, paid to a configured recipient   |
 
 ## Community modules
 

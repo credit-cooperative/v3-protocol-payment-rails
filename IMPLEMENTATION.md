@@ -104,6 +104,19 @@ Cross-chain USDC bridge via Circle's CCTP V2.
 
 ---
 
+### Native modules (`src/modules/native/`)
+
+PaymentRails treats the chain's native value (ETH, AVAX) as a token like any other, under the sentinel key
+`PaymentRails.NATIVE_TOKEN()` (`0xEeee…EEeE`). Non-zero value sent to the rails is accepted by an event-only
+`receive()` and routed through `configureToken(NATIVE_TOKEN, …)` / `executeAction(NATIVE_TOKEN, amount)`.
+Modules that take native implement `INativeActionModule`: the rails calls `executeNative{value: amount}`
+instead of approving, and such a module **reverts** on failure so the value rolls back (reported as
+`ActionFailed`). One route per key keeps every destination exclusive.
+
+- **WrapModule** (`wrappedNative` immutable) — native in, deposits into WETH/WAVAX, wrapped balance back to the rails. Module type `"WRAP"`, no params.
+- **UnwrapModule** (`wrappedNative` immutable) — a regular ERC-20 module: pulls the wrapped token, `withdraw()`s, hands native back through `PaymentRails.returnNative(token)`, which only the module configured for that token may call (logged as `NativeReturned`, not as a payer `NativeReceived`). Module type `"UNWRAP"`, no params.
+- **NativeForwardModule** — native in, paid to the recipient in `ForwardParams`. Module type `"NATIVE_FORWARD"`. Also the emergency exit for native, including value that arrived without `receive()`.
+
 ## Usage Examples
 
 ### Configuring PaymentRails to Forward USDC
@@ -180,6 +193,28 @@ baseRails.configureToken(
 ```
 
 ---
+
+### Native value: wrap, pay out, or recover
+
+```solidity
+address NATIVE = paymentRails.NATIVE_TOKEN();
+
+// Native AVAX paid straight to the rails (e.g. by a settlement contract) is accepted by receive().
+// Route it into WAVAX, after which the WAVAX route (swap, bridge, forward) applies:
+paymentRails.configureToken(NATIVE, "WRAP", address(wrapModule), 0, "", true);     // owner
+paymentRails.executeAction(NATIVE, paymentRails.getTokenBalance(NATIVE));          // anyone
+
+// Or pay a recipient in native, which is also the recovery path for force-fed value:
+paymentRails.configureToken(
+    NATIVE, "NATIVE_FORWARD", address(nativeForwardModule), 0,
+    nativeForwardModule.encodeParams(DataTypes.ForwardParams({ recipient: treasury, minAmount: 0 })), true
+);
+paymentRails.executeAction(NATIVE, paymentRails.getTokenBalance(NATIVE));
+
+// Wrapped balance can go back to native (e.g. a swap output that must leave as AVAX):
+paymentRails.configureToken(WAVAX, "UNWRAP", address(unwrapModule), 0, "", true);
+paymentRails.executeAction(WAVAX, paymentRails.getTokenBalance(WAVAX));           // AVAX lands on the rails
+```
 
 ## Testing
 

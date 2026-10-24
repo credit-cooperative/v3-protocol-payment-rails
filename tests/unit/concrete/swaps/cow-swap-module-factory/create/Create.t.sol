@@ -21,7 +21,7 @@ contract Create_CowSwapModuleFactory_Test is CowSwapModuleFactoryBase {
 
     /// @dev Owning the PaymentRails confers no right to mint a module for it.
     function test_RevertWhen_CallerIsPaymentRailsOwnerButNotFactoryOwner() external {
-        assertEq(PaymentRails(paymentRails).owner(), railsOwner);
+        assertEq(PaymentRails(payable(paymentRails)).owner(), railsOwner);
 
         vm.prank(railsOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, railsOwner));
@@ -79,7 +79,7 @@ contract Create_CowSwapModuleFactory_Test is CowSwapModuleFactoryBase {
         address module = factory.create(owner, paymentRails);
 
         assertEq(CowSwapModule(module).owner(), owner);
-        assertEq(PaymentRails(paymentRails).owner(), railsOwner);
+        assertEq(PaymentRails(payable(paymentRails)).owner(), railsOwner);
     }
 
     /// @dev The production flow: cancel rights go straight to the PaymentRails owner.
@@ -91,7 +91,7 @@ contract Create_CowSwapModuleFactory_Test is CowSwapModuleFactoryBase {
     }
 
     function test_WhenCallerIsFactoryOwner_ShouldNotRequireOwningThePaymentRails() external {
-        assertTrue(PaymentRails(paymentRails).owner() != address(this));
+        assertTrue(PaymentRails(payable(paymentRails)).owner() != address(this));
         assertEq(factory.owner(), address(this));
 
         address module = factory.create(owner, paymentRails);

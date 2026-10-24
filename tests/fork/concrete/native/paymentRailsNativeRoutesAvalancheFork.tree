@@ -1,0 +1,23 @@
+PaymentRails_NativeRoutesAvalancheFork
+├── when AVAX is sent with call
+│   └── it should accept the value and emit NativeReceived
+├── when AVAX is sent with transfer
+│   └── it should accept the value within the 2300 gas stipend
+├── given native routed to WRAP
+│   ├── it should preview the native balance as WAVAX
+│   ├── it should mint real WAVAX to the rails one to one
+│   ├── it should leave the module clean
+│   └── when WAVAX is routed to SWAP
+│       └── it should swap the wrapped balance to USDC through the real SwapRouter02
+├── given native routed to NATIVE_FORWARD
+│   ├── when the recipient is an EOA
+│   │   └── it should pay raw AVAX to the recipient
+│   └── when the recipient is a contract
+│       └── it should deliver the value
+├── given WAVAX routed to UNWRAP
+│   ├── it should turn real WAVAX back into AVAX on the rails
+│   └── it should log the return as a deposit, not a payer receipt
+├── given AVAX was force-fed to a fresh rails
+│   └── it should be recoverable through a NATIVE_FORWARD route
+└── when created by the unchanged factory
+    └── it should accept and route AVAX

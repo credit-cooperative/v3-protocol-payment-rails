@@ -1,0 +1,41 @@
+WrapModule
+├── constructor
+│   ├── when wrappedNative is zero address
+│   │   └── it should revert with WrapModule_ZeroWrappedNative
+│   ├── when wrappedNative has no code
+│   │   └── it should revert with WrapModule_WrappedNativeNotContract
+│   └── when wrappedNative is a contract
+│       └── it should set wrappedNative
+├── executeNative
+│   ├── when amount is zero
+│   │   └── it should revert with WrapModule_ValueMismatch
+│   ├── when value differs from amount
+│   │   └── it should revert with WrapModule_ValueMismatch
+│   ├── when the wrapper credits less than the deposit
+│   │   └── it should revert with WrapModule_WrapAmountMismatch
+│   ├── when the wrapper credits one to one
+│   │   ├── it should return success with amountOut equal to amount
+│   │   ├── it should return wrappedNative as outputToken
+│   │   ├── it should transfer the wrapped balance to the caller
+│   │   ├── it should hold no native and no wrapped balance afterwards
+│   │   └── it should emit Wrapped
+│   └── fuzz
+│       └── when any non-zero value is wrapped
+│           └── it should credit the caller exactly that amount
+├── execute
+│   └── it should return a failed result with "Native input only"
+├── validate
+│   ├── when token is not the native sentinel
+│   │   └── it should return false with "Native input only"
+│   ├── when amount is zero
+│   │   └── it should return false with "Zero amount"
+│   ├── when caller native balance is insufficient
+│   │   └── it should return false with "Insufficient balance"
+│   └── when all checks pass
+│       └── it should return true with empty reason
+├── estimateOutput
+│   ├── it should return amount as estimatedOutput
+│   └── it should return wrappedNative as outputToken
+└── moduleType
+    ├── it should return "WRAP"
+    └── it should report native input support
