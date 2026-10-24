@@ -1,0 +1,32 @@
+PaymentRails_ExecuteActionNative
+├── when the native key is not configured
+│   └── it should revert with PaymentRails_TokenNotEnabled
+├── when amount is zero
+│   └── it should revert with PaymentRails_ZeroAmount
+├── when amount is below minBalance
+│   └── it should revert with PaymentRails_BelowMinimumBalance
+├── when native balance is insufficient
+│   └── it should revert with PaymentRails_InsufficientBalance
+└── given a native route with sufficient balance
+    ├── when the module succeeds
+    │   ├── it should return true
+    │   ├── it should push exactly amount of native to the module
+    │   ├── it should leave the remaining native on paymentRails
+    │   └── it should emit ActionExecuted with NATIVE_TOKEN as token
+    ├── when the module reverts
+    │   ├── it should return false
+    │   ├── it should keep the native on paymentRails
+    │   ├── it should emit NativeActionReverted with the revert data
+    │   └── it should emit ActionFailed with "Module execution reverted"
+    ├── when the module returns success false
+    │   ├── it should revert with PaymentRails_NativeModuleReturnedFailure
+    │   └── it should keep the native on paymentRails
+    ├── when called by a non-owner
+    │   └── it should succeed
+    ├── given value arrived without calling receive
+    │   └── it should route it
+    ├── when amount equals the full balance
+    │   └── it should drain paymentRails
+    └── fuzz
+        └── when amount is between minBalance and balance
+            └── it should push exactly amount

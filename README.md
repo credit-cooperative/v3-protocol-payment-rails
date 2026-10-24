@@ -26,6 +26,7 @@ src/
     forwards/   ForwardModule
     swaps/      DexSwapModule, CowSwapModule
     bridges/    CCTPBridgeModule
+    native/     WrapModule, UnwrapModule, NativeForwardModule (native value under the NATIVE_TOKEN key)
     contrib/    community modules (different trust model — see README inside)
 tests/          unit, integration, fork, invariant — mirroring src/modules categories
 scripts/        deployment + smoke/dryrun scripts

@@ -1,0 +1,48 @@
+UnwrapModule
+├── constructor
+│   ├── when wrappedNative is zero address
+│   │   └── it should revert with UnwrapModule_ZeroWrappedNative
+│   ├── when wrappedNative has no code
+│   │   └── it should revert with UnwrapModule_WrappedNativeNotContract
+│   └── when wrappedNative is a contract
+│       └── it should set wrappedNative
+├── receive
+│   ├── when value comes from the wrapper
+│   │   └── it should accept the value
+│   └── when value comes from anyone else
+│       └── it should revert with UnwrapModule_UnexpectedNativeSender
+├── execute
+│   ├── when token is not wrappedNative
+│   │   └── it should return failed result with "Only wrapped native supported"
+│   ├── when amount is zero
+│   │   └── it should return failed result with "Zero amount"
+│   ├── when caller has insufficient balance
+│   │   └── it should return failed result with "Insufficient balance"
+│   ├── when caller has not approved the module
+│   │   └── it should return failed result with "Transfer failed"
+│   ├── when caller cannot take native value
+│   │   ├── it should return failed result with "Native transfer failed"
+│   │   ├── it should return the wrapped balance to the caller
+│   │   └── it should hold nothing afterwards
+│   ├── when all checks pass
+│   │   ├── it should burn the wrapped balance from the caller
+│   │   ├── it should send the native value to the caller
+│   │   ├── it should return success with the native sentinel as outputToken
+│   │   ├── it should hold nothing afterwards
+│   │   └── it should emit Unwrapped
+│   └── fuzz
+│       └── when any non-zero amount is unwrapped
+│           └── it should deliver exactly that amount
+├── validate
+│   ├── when token is not wrappedNative
+│   │   └── it should return false with "Only wrapped native supported"
+│   ├── when amount is zero
+│   │   └── it should return false with "Zero amount"
+│   ├── when caller has insufficient balance
+│   │   └── it should return false with "Insufficient balance"
+│   └── when all checks pass
+│       └── it should return true with empty reason
+├── estimateOutput
+│   └── it should return amount and the native sentinel
+└── moduleType
+    └── it should return "UNWRAP"

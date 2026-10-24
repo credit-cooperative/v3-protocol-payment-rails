@@ -1,0 +1,31 @@
+NativeRoutes_Integration
+├── given native routed to WRAP and the wrapped token routed to FORWARD
+│   ├── it should preview the native balance as wrapped output
+│   ├── it should convert the native balance into wrapped balance on the rails
+│   └── it should forward the wrapped balance to the recipient on the next action
+├── given native routed to NATIVE_FORWARD
+│   ├── when the recipient is an EOA
+│   │   └── it should pay the recipient in native
+│   ├── when the recipient refuses
+│   │   ├── it should report a failed action
+│   │   └── it should keep the native on the rails
+│   ├── when the recipient burns all gas
+│   │   ├── it should report a failed action
+│   │   └── it should keep the native on the rails
+│   └── when the recipient re-enters executeAction
+│       ├── it should block the re-entrant call
+│       └── it should complete the first call
+├── given the wrapped token routed to UNWRAP and native routed to NATIVE_FORWARD
+│   ├── it should turn wrapped balance back into native on the rails
+│   ├── it should log the return as a deposit, not a payer receipt
+│   └── it should pay the recipient in native on the next action
+├── when the native key is configured with an ERC20-only module
+│   └── it should revert with PaymentRails_ModuleDoesNotSupportNative
+├── when an ERC20 key is routed to a native-only module
+│   ├── it should report a failed action
+│   ├── it should move no funds
+│   └── it should revoke the approval
+├── given value arrived without calling receive
+│   └── it should be recoverable through a NATIVE_FORWARD route
+└── when the owner switches the native route
+    └── it should apply only the current route

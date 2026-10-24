@@ -61,6 +61,7 @@ DEPLOYER="${ETH_FROM:-$(cast wallet address --mnemonic "${MNEMONIC:-$TEST_MNEMON
 RAILS_OWNER=0x70997970C51812dc3A010C7d01b50e0d17dc79C8   # stands in for the production multi-sig
 KEEPER=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC        # permissionless executor
 RECIPIENT=0x90F79bf6EB2c4f870365E785982E1f101E93b906
+NATIVE=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE          # PaymentRails.NATIVE_TOKEN()
 ATTACKER=0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
 SOLVER=0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
 SOLVER_PK=0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
@@ -115,6 +116,11 @@ send_reverts() { # <label> <from> <to> <sig> [args...] — asserts the tx does N
 }
 
 topic0() { cast keccak "$1"; }
+log_has() { # <contract> <event-sig> -> succeeds iff LAST_RECEIPT carries that event from that contract
+  local addr t; addr=$(echo "$1" | tr 'A-Z' 'a-z'); t=$(cast keccak "$2")
+  echo "$LAST_RECEIPT" | jq -e --arg a "$addr" --arg t "$t" \
+    'any(.logs[]; (.address|ascii_downcase)==$a and .topics[0]==$t)' >/dev/null 2>&1
+}
 log_data() { # <contract> <event-sig> -> non-indexed data of the first match in LAST_RECEIPT
   local addr t
   addr=$(echo "$1" | tr 'A-Z' 'a-z'); t=$(topic0 "$2")
@@ -245,12 +251,23 @@ for pair in "PaymentRailsFactory:$RAILS_FACTORY" "CowSwapModuleFactory:$COW_FACT
   fi
 done
 
+step "native modules: WrapModule + UnwrapModule take WETH; NativeForwardModule is chain-agnostic"
+WRAP_MODULE=$(deploy_script scripts/solidity/deploy/DeployWrapModule.s.sol --sig "run(address)" "$WETH")
+UNWRAP_MODULE=$(deploy_script scripts/solidity/deploy/DeployUnwrapModule.s.sol --sig "run(address)" "$WETH")
+NATIVE_FORWARD_MODULE=$(deploy_script scripts/solidity/deploy/DeployNativeForwardModule.s.sol)
+for pair in "WrapModule:$WRAP_MODULE" "UnwrapModule:$UNWRAP_MODULE" "NativeForwardModule:$NATIVE_FORWARD_MODULE"; do
+  n=${pair%%:*}; a=${pair##*:}
+  [[ -n "$a" && "$(cast codesize "$a" --rpc-url "$RPC")" -gt 0 ]] && ok "$n = $a" || bad "$n failed to deploy"
+done
+
 step "deployed contracts carry the chain config they were given"
 assert_eq "CowSwapModuleFactory.cowSettlement" "$(cu $COW_FACTORY 'cowSettlement()(address)')" "$GPV2_SETTLEMENT"
 assert_eq "CowSwapModuleFactory.owner" "$(cu $COW_FACTORY 'owner()(address)')" "$RAILS_OWNER"
 assert_eq "DexSwapModule.router" "$(cu $DEX_MODULE 'router()(address)')" "$UNISWAP_V3_ROUTER"
 assert_eq "CCTPBridgeModule.tokenMessenger" "$(cu $CCTP_MODULE 'tokenMessenger()(address)')" "$TOKEN_MESSENGER_V2"
 assert_eq "CCTPBridgeModule.usdc" "$(cu $CCTP_MODULE 'usdc()(address)')" "$USDC"
+assert_eq "WrapModule.wrappedNative" "$(cu $WRAP_MODULE 'wrappedNative()(address)')" "$WETH"
+assert_eq "UnwrapModule.wrappedNative" "$(cu $UNWRAP_MODULE 'wrappedNative()(address)')" "$WETH"
 
 # ══════════════════════════════════════════════════════════════════════════════
 phase "PHASE 3 — PaymentRailsFactory lifecycle"
@@ -298,6 +315,38 @@ send "$FUNDER" "$USDC" "transfer(address,uint256)" "$RAILS_B" "2000000000" || ba
 send "$FUNDER" "$WETH" "transfer(address,uint256)" "$RAILS_B" "1000000000000000000" || bad "fund B WETH"
 assert_eq "rails A WETH" "$(cu $RAILS_A 'getTokenBalance(address)(uint256)' $WETH)" "10000000000000000000"
 assert_eq "rails B USDC" "$(cu $RAILS_B 'getTokenBalance(address)(uint256)' $USDC)" "2000000000"
+
+step "native key on rails B: ERC-20-only module rejected, NATIVE -> WRAP configured, raw ETH in"
+assert_eq "rails B NATIVE_TOKEN()" "$(cu $RAILS_B 'NATIVE_TOKEN()(address)')" "$NATIVE"
+send_reverts "configureToken(NATIVE -> ForwardModule) reverts" "$RAILS_OWNER" "$RAILS_B" \
+  "configureToken(address,string,address,uint256,bytes,bool)" "$NATIVE" "FORWARD" "$FWD_MODULE" 0 "$(cast abi-encode "f(address,uint256)" "$RECIPIENT" 0)" true
+send_reverts "attacker cannot configure the native key" "$ATTACKER" "$RAILS_B" \
+  "configureToken(address,string,address,uint256,bytes,bool)" "$NATIVE" "WRAP" "$WRAP_MODULE" 0 "0x" true
+send "$RAILS_OWNER" "$RAILS_B" "configureToken(address,string,address,uint256,bytes,bool)" \
+  "$NATIVE" "WRAP" "$WRAP_MODULE" 0 "0x" true || bad "configure NATIVE -> WRAP"
+send "$FUNDER" "$RAILS_B" --value 1ether || bad "raw ETH transfer to rails B"
+log_has "$RAILS_B" "NativeReceived(address,uint256)" && ok "NativeReceived emitted" || bad "no NativeReceived"
+assert_eq "rails B native balance" "$(cast balance --rpc-url "$RPC" "$RAILS_B")" "1000000000000000000"
+
+step "NATIVE -> WRAP through the real WETH, then NATIVE -> NATIVE_FORWARD to a fresh recipient, then WETH -> UNWRAP"
+WETH_B_BEFORE_WRAP=$(bal $WETH $RAILS_B)
+send "$KEEPER" "$RAILS_B" "executeAction(address,uint256)" "$NATIVE" 1000000000000000000 || bad "executeAction(NATIVE) wrap"
+assert_eq "rails B native after wrap" "$(cast balance --rpc-url "$RPC" "$RAILS_B")" "0"
+assert_eq "rails B WETH grew by the wrapped amount" "$(python3 -c "print($(bal $WETH $RAILS_B) - $WETH_B_BEFORE_WRAP)")" "1000000000000000000"
+# A fresh address: the public-mnemonic accounts carry EIP-7702 delegations on mainnet that forward value away.
+NATIVE_RECIPIENT=$(cast wallet new --json | jq -r '.[0].address')
+send "$RAILS_OWNER" "$RAILS_B" "configureToken(address,string,address,uint256,bytes,bool)" \
+  "$NATIVE" "NATIVE_FORWARD" "$NATIVE_FORWARD_MODULE" 0 "$(cast abi-encode "f(address,uint256)" "$NATIVE_RECIPIENT" 0)" true || bad "configure NATIVE -> NATIVE_FORWARD"
+send "$FUNDER" "$RAILS_B" --value 1ether || bad "raw ETH transfer (second)"
+send "$KEEPER" "$RAILS_B" "executeAction(address,uint256)" "$NATIVE" 1000000000000000000 || bad "executeAction(NATIVE) forward"
+assert_eq "recipient received raw ETH" "$(cast balance --rpc-url "$RPC" "$NATIVE_RECIPIENT")" "1000000000000000000"
+send "$RAILS_OWNER" "$RAILS_B" "configureToken(address,string,address,uint256,bytes,bool)" \
+  "$WETH" "UNWRAP" "$UNWRAP_MODULE" 0 "0x" true || bad "configure WETH -> UNWRAP"
+send "$KEEPER" "$RAILS_B" "executeAction(address,uint256)" "$WETH" 1000000000000000000 || bad "executeAction(WETH) unwrap"
+assert_eq "rails B native after unwrap" "$(cast balance --rpc-url "$RPC" "$RAILS_B")" "1000000000000000000"
+send "$KEEPER" "$RAILS_B" "executeAction(address,uint256)" "$NATIVE" 1000000000000000000 || bad "executeAction(NATIVE) forward (unwrapped)"
+assert_eq "recipient received the unwrapped ETH too" "$(cast balance --rpc-url "$RPC" "$NATIVE_RECIPIENT")" "2000000000000000000"
+assert_eq "no module holds value" "$(python3 -c "print($(cast balance --rpc-url "$RPC" "$WRAP_MODULE") + $(cast balance --rpc-url "$RPC" "$UNWRAP_MODULE") + $(cast balance --rpc-url "$RPC" "$NATIVE_FORWARD_MODULE"))")" "0"
 
 # ─────────────────── oracle helpers (independent of the module's math) ───────────────────
 feed_answer() {

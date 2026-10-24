@@ -14,6 +14,11 @@ import { DataTypes } from "../types/DataTypes.sol";
 ///
 /// Safety mechanisms include minimum-balance thresholds, enable/disable flags, module validation,
 /// and reentrancy protection.
+///
+/// Native value is a token like any other: non-zero value is accepted by `receive` and routed under the
+/// {NATIVE_TOKEN} key through modules that implement {INativeActionModule}, which are called with the value
+/// attached instead of being approved. One configured route per key keeps every destination exclusive.
+/// A module returning native to the rail (e.g. an unwrap) uses {returnNative}, which is not logged as a receipt.
 interface IPaymentRails {
     /*//////////////////////////////////////////////////////////////////////////
                                     EVENTS
@@ -58,6 +63,25 @@ interface IPaymentRails {
         address indexed token, string actionType, uint256 amount, string reason, address indexed executor
     );
 
+    /// @notice Emitted when native value is received through `receive`, i.e. a payer receipt.
+    /// @dev Value returned by a module through {returnNative} emits {NativeReturned} instead, so summing this
+    /// event gives payer income only.
+    /// @param sender The address that sent the value.
+    /// @param amount The value received, in wei.
+    event NativeReceived(address indexed sender, uint256 amount);
+
+    /// @notice Emitted when a module returns native value through {returnNative}, e.g. after an unwrap.
+    /// @param sourceToken The token key whose configured module returned the value.
+    /// @param module The module that returned it.
+    /// @param amount The value returned, in wei.
+    event NativeReturned(address indexed sourceToken, address indexed module, uint256 amount);
+
+    /// @notice Emitted alongside {ActionFailed} when a native module reverts, carrying its revert data.
+    /// @dev Reverting is a native module's designed failure channel, so the cause is preserved here.
+    /// @param module The native module that reverted.
+    /// @param revertData The raw revert data (custom error or reason string).
+    event NativeActionReverted(address indexed module, bytes revertData);
+
     /*//////////////////////////////////////////////////////////////////////////
                                   CONFIGURATION
     //////////////////////////////////////////////////////////////////////////*/
@@ -75,8 +99,9 @@ interface IPaymentRails {
     /// - `token` must not be `address(0)`.
     /// - If `actionType` is non-empty, `actionModule` must implement {IActionModule}.
     /// - If `actionType` is empty, `actionModule` must be `address(0)`.
+    /// - If `token` is {NATIVE_TOKEN}, `actionModule` must also report {INativeActionModule.supportsNativeInput}.
     ///
-    /// @param token Token address to configure.
+    /// @param token Token address to configure, or {NATIVE_TOKEN} for the native balance.
     /// @param actionType Action identifier (e.g., "FORWARD", "SWAP", "BRIDGE"). Empty string clears config.
     /// @param actionModule Address of the module contract.
     /// @param minBalance Minimum balance threshold for execution.
@@ -97,9 +122,9 @@ interface IPaymentRails {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Execute the configured action for a token.
-    /// @dev Permissionless. Validates preconditions, approves the module for `amount`, calls
-    /// {IActionModule.execute}, and emits {ActionExecuted} on success or {ActionFailed} on failure.
-    /// Revokes approval on all paths.
+    /// @dev Permissionless. Validates preconditions, approves the module for `amount` (or, for {NATIVE_TOKEN},
+    /// calls {INativeActionModule.executeNative} with the value attached), and emits {ActionExecuted} on success
+    /// or {ActionFailed} on failure. Revokes approval on all ERC-20 paths.
     ///
     /// All execution parameters come from the owner-configured `moduleParams` — the caller supplies
     /// only `(token, amount)`. This eliminates caller-controlled attack surfaces at the architecture
@@ -108,6 +133,9 @@ interface IPaymentRails {
     /// Notes:
     /// - The executor's address (`msg.sender`) is recorded in both {ActionExecuted} and {ActionFailed}.
     /// - Module execution failures return `false` instead of reverting.
+    /// - For {NATIVE_TOKEN} the module is called with the value attached; a native module that fails reverts,
+    ///   which rolls the value back and is reported as {ActionFailed}. A native module returning `false` is a
+    ///   hard revert, so value can never remain in a module.
     ///
     /// Requirements:
     /// - Token must be configured and enabled.
@@ -120,8 +148,27 @@ interface IPaymentRails {
     function executeAction(address token, uint256 amount) external returns (bool success);
 
     /*//////////////////////////////////////////////////////////////////////////
+                                NATIVE DEPOSIT
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Lets the module configured for `sourceToken` hand native value back to the rail.
+    /// @dev Emits a {NativeReturned} event rather than a payer receipt. Used by modules such as an unwrap; the
+    /// value is then routed under {NATIVE_TOKEN} like any other.
+    ///
+    /// Requirements:
+    /// - The caller must be the module configured for `sourceToken`.
+    /// - `msg.value` must be greater than zero.
+    ///
+    /// @param sourceToken The token key the calling module is configured for.
+    function returnNative(address sourceToken) external payable;
+
+    /*//////////////////////////////////////////////////////////////////////////
                             CONSTANT FUNCTIONS
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the sentinel used as the token key for the native balance.
+    /// @return The native token sentinel address.
+    function NATIVE_TOKEN() external pure returns (address);
 
     /// @notice Returns the full configuration for a token.
     /// @dev Returns a zero-initialized struct if the token is not configured.
@@ -130,6 +177,7 @@ interface IPaymentRails {
     function getTokenConfig(address token) external view returns (DataTypes.TokenConfig memory config);
 
     /// @notice Returns the current token balance held by this PaymentRails contract.
+    /// @dev For {NATIVE_TOKEN}, returns the native balance.
     /// @param token Token address to check.
     /// @return balance Current balance of the token.
     function getTokenBalance(address token) external view returns (uint256 balance);

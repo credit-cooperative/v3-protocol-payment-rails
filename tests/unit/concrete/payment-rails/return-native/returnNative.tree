@@ -1,0 +1,14 @@
+PaymentRails_ReturnNative
+├── when caller is not the module configured for the source token
+│   └── it should revert with PaymentRails_UnexpectedNativeDepositor
+├── when the source token has no configuration
+│   └── it should revert with PaymentRails_UnexpectedNativeDepositor
+├── when value is zero
+│   └── it should revert with PaymentRails_ZeroAmount
+├── when the configured module returns value
+│   ├── it should increase the native balance by the value
+│   ├── it should emit NativeReturned with source token, module and value
+│   └── it should not emit NativeReceived
+└── fuzz
+    └── when any non-zero value is returned
+        └── it should hold exactly the value

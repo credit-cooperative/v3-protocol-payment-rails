@@ -48,6 +48,75 @@ library Errors {
     /// @param amount Requested execution amount
     error PaymentRails_InsufficientBalance(uint256 balance, uint256 amount);
 
+    /// @notice Thrown when configuring the native token key with a module that does not take native value.
+    error PaymentRails_ModuleDoesNotSupportNative();
+
+    /// @notice Thrown when returnNative() is called by anything other than the module configured for the source token.
+    /// @param depositor The address that attempted the return.
+    error PaymentRails_UnexpectedNativeDepositor(address depositor);
+
+    /// @notice Thrown when a native module returns a failed result instead of reverting.
+    /// @dev Value has already been pushed to the module, so the whole execution is reverted to roll it back.
+    /// @param reason The module's failure reason.
+    error PaymentRails_NativeModuleReturnedFailure(string reason);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            WRAP MODULE ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the wrapped-native address is the zero address in the constructor.
+    error WrapModule_ZeroWrappedNative();
+
+    /// @notice Thrown when the wrapped-native address has no deployed code in the constructor.
+    /// @param wrappedNative The address that was rejected.
+    error WrapModule_WrappedNativeNotContract(address wrappedNative);
+
+    /// @notice Thrown when the value sent does not match the requested amount, or is zero.
+    /// @param amount The requested amount, in wei.
+    /// @param value The value actually sent, in wei.
+    error WrapModule_ValueMismatch(uint256 amount, uint256 value);
+
+    /// @notice Thrown when the wrapper credited a different amount than the value deposited.
+    /// @param expected The value deposited, in wei.
+    /// @param actual The observed increase in the wrapped-native balance.
+    error WrapModule_WrapAmountMismatch(uint256 expected, uint256 actual);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            UNWRAP MODULE ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the wrapped-native address is the zero address in the constructor.
+    error UnwrapModule_ZeroWrappedNative();
+
+    /// @notice Thrown when the wrapped-native address has no deployed code in the constructor.
+    /// @param wrappedNative The address that was rejected.
+    error UnwrapModule_WrappedNativeNotContract(address wrappedNative);
+
+    /// @notice Thrown when native value reaches the module from anything other than the wrapper's withdraw.
+    /// @param sender The address that sent the value.
+    error UnwrapModule_UnexpectedNativeSender(address sender);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                        NATIVE FORWARD MODULE ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the value sent does not match the requested amount, or is zero.
+    /// @param amount The requested amount, in wei.
+    /// @param value The value actually sent, in wei.
+    error NativeForwardModule_ValueMismatch(uint256 amount, uint256 value);
+
+    /// @notice Thrown when the configured recipient is the zero address.
+    error NativeForwardModule_ZeroRecipient();
+
+    /// @notice Thrown when the amount is below the configured minimum.
+    /// @param amount The requested amount, in wei.
+    /// @param minAmount The configured minimum, in wei.
+    error NativeForwardModule_AmountBelowMinimum(uint256 amount, uint256 minAmount);
+
+    /// @notice Thrown when the recipient refused the native value.
+    /// @param recipient The address that refused the value.
+    error NativeForwardModule_TransferFailed(address recipient);
+
     /*//////////////////////////////////////////////////////////////////////////
                             DEX SWAP MODULE ERRORS
     //////////////////////////////////////////////////////////////////////////*/

@@ -1,0 +1,16 @@
+PaymentRails_ConfigureTokenNative
+├── when the module does not expose supportsNativeInput
+│   └── it should revert with PaymentRails_ModuleDoesNotSupportNative
+├── when the module is any existing ERC20 module
+│   ├── it should revert for ForwardModule
+│   ├── it should revert for DexSwapModule
+│   ├── it should revert for CowSwapModule
+│   ├── it should revert for CCTPBridgeModule
+│   └── it should revert for UnwrapModule
+├── when the module reports no native support
+│   └── it should revert with PaymentRails_ModuleDoesNotSupportNative
+├── when the module supports native input
+│   ├── it should store the configuration under NATIVE_TOKEN
+│   └── it should emit TokenConfigured
+└── when clearing the native configuration
+    └── it should succeed with a zero module

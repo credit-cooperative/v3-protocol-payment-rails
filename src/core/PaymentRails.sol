@@ -3,7 +3,9 @@ pragma solidity 0.8.29;
 
 import { IPaymentRails } from "../interfaces/IPaymentRails.sol";
 import { IActionModule } from "../interfaces/IActionModule.sol";
+import { INativeActionModule } from "../interfaces/INativeActionModule.sol";
 import { DataTypes } from "../types/DataTypes.sol";
+import { Constants } from "../libraries/Constants.sol";
 import { Errors } from "../libraries/Errors.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -33,6 +35,38 @@ contract PaymentRails is IPaymentRails, Ownable2Step, ReentrancyGuard {
     constructor(address initialOwner) Ownable(initialOwner) { }
 
     /*//////////////////////////////////////////////////////////////////////////
+                                NATIVE INGRESS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Event-only so it fits the 2300-gas stipend of transfer/send. Zero value is rejected so every
+    /// {NativeReceived} corresponds to a balance increase. Payer receipts only: a module returning native uses
+    /// {returnNative}. The balance is routed under the {NATIVE_TOKEN} key.
+    receive() external payable {
+        // Check: Non-zero value
+        if (msg.value == 0) {
+            revert Errors.PaymentRails_ZeroAmount();
+        }
+
+        emit NativeReceived(msg.sender, msg.value);
+    }
+
+    /// @inheritdoc IPaymentRails
+    /// @dev Emits a {NativeReturned} event.
+    function returnNative(address sourceToken) external payable {
+        // Check: Caller is the module configured for the source token
+        if (msg.sender != _tokenConfigs[sourceToken].actionModule) {
+            revert Errors.PaymentRails_UnexpectedNativeDepositor(msg.sender);
+        }
+
+        // Check: Non-zero value
+        if (msg.value == 0) {
+            revert Errors.PaymentRails_ZeroAmount();
+        }
+
+        emit NativeReturned(sourceToken, msg.sender, msg.value);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
                             OWNERSHIP OVERRIDES
     //////////////////////////////////////////////////////////////////////////*/
 
@@ -46,13 +80,18 @@ contract PaymentRails is IPaymentRails, Ownable2Step, ReentrancyGuard {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IPaymentRails
+    function NATIVE_TOKEN() external pure returns (address) {
+        return Constants.NATIVE_TOKEN;
+    }
+
+    /// @inheritdoc IPaymentRails
     function getTokenConfig(address token) external view returns (DataTypes.TokenConfig memory) {
         return _tokenConfigs[token];
     }
 
     /// @inheritdoc IPaymentRails
     function getTokenBalance(address token) external view returns (uint256) {
-        return IERC20(token).balanceOf(address(this));
+        return _balanceOf(token);
     }
 
     /// @inheritdoc IPaymentRails
@@ -83,7 +122,7 @@ contract PaymentRails is IPaymentRails, Ownable2Step, ReentrancyGuard {
         // Check: Get token balance
         // Note: Assumes token is trusted ERC20 implementation
         // Malicious tokens could return fake balance or revert, but this is acceptable for preview
-        uint256 balance = IERC20(token).balanceOf(address(this));
+        uint256 balance = _balanceOf(token);
 
         // Check: Non-zero balance (consistency with executeAction which checks amount != 0)
         if (balance == 0) {
@@ -153,6 +192,16 @@ contract PaymentRails is IPaymentRails, Ownable2Step, ReentrancyGuard {
             } catch {
                 revert Errors.PaymentRails_ModuleValidationFailed();
             }
+
+            // Check: The native key needs a module that takes value (probed low-level so a catch-all fallback
+            // still yields this error rather than a decode panic)
+            if (token == Constants.NATIVE_TOKEN) {
+                (bool ok, bytes memory ret) =
+                    actionModule.staticcall(abi.encodeCall(INativeActionModule.supportsNativeInput, ()));
+                if (!ok || ret.length != 32 || !abi.decode(ret, (bool))) {
+                    revert Errors.PaymentRails_ModuleDoesNotSupportNative();
+                }
+            }
         }
 
         // Effect: Store configuration
@@ -186,9 +235,13 @@ contract PaymentRails is IPaymentRails, Ownable2Step, ReentrancyGuard {
             revert Errors.PaymentRails_BelowMinimumBalance(amount, config.minBalance);
         }
 
-        uint256 balance = IERC20(token).balanceOf(address(this));
+        uint256 balance = _balanceOf(token);
         if (balance < amount) {
             revert Errors.PaymentRails_InsufficientBalance(balance, amount);
+        }
+
+        if (token == Constants.NATIVE_TOKEN) {
+            return _executeNative(config, amount);
         }
 
         IERC20(token).forceApprove(config.actionModule, amount);
@@ -210,5 +263,38 @@ contract PaymentRails is IPaymentRails, Ownable2Step, ReentrancyGuard {
             emit ActionFailed(token, config.actionType, amount, "Module execution reverted", msg.sender);
             return false;
         }
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Pushes `amount` of native value into the configured module. A native module reverts on failure,
+    /// which rolls the value back; a `false` result is turned into a revert so value never remains in a module.
+    function _executeNative(DataTypes.TokenConfig memory config, uint256 amount) private returns (bool success) {
+        try INativeActionModule(config.actionModule).executeNative{ value: amount }(
+            amount, config.moduleParams
+        ) returns (
+            DataTypes.ExecutionResult memory result
+        ) {
+            if (!result.success) {
+                revert Errors.PaymentRails_NativeModuleReturnedFailure(result.failureReason);
+            }
+            emit ActionExecuted(
+                Constants.NATIVE_TOKEN, config.actionType, amount, result.amountOut, result.outputToken, msg.sender
+            );
+            return true;
+        } catch (bytes memory revertData) {
+            emit NativeActionReverted(config.actionModule, revertData);
+            emit ActionFailed(
+                Constants.NATIVE_TOKEN, config.actionType, amount, "Module execution reverted", msg.sender
+            );
+            return false;
+        }
+    }
+
+    /// @dev Balance of `token` held by this contract; the native balance for {NATIVE_TOKEN}.
+    function _balanceOf(address token) private view returns (uint256) {
+        return token == Constants.NATIVE_TOKEN ? address(this).balance : IERC20(token).balanceOf(address(this));
     }
 }

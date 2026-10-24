@@ -1,0 +1,48 @@
+NativeForwardModule
+├── executeNative
+│   ├── when amount is zero
+│   │   └── it should revert with NativeForwardModule_ValueMismatch
+│   ├── when value differs from amount
+│   │   └── it should revert with NativeForwardModule_ValueMismatch
+│   ├── when recipient is zero address
+│   │   └── it should revert with NativeForwardModule_ZeroRecipient
+│   ├── when amount is below minAmount
+│   │   └── it should revert with NativeForwardModule_AmountBelowMinimum
+│   ├── when recipient refuses the value
+│   │   └── it should revert with NativeForwardModule_TransferFailed
+│   ├── when recipient accepts
+│   │   ├── it should transfer the value to the recipient
+│   │   ├── it should return success with the native sentinel as outputToken
+│   │   ├── it should return the encoded recipient in data
+│   │   ├── it should hold nothing afterwards
+│   │   └── it should emit NativeForwarded
+│   ├── when recipient is a contract
+│   │   └── it should deliver the value
+│   └── fuzz
+│       └── when amount is at or above minAmount
+│           └── it should deliver exactly amount
+├── execute
+│   └── it should return a failed result with "Native input only"
+├── validate
+│   ├── when token is not the native sentinel
+│   │   ├── it should return false with "Native input only"
+│   │   └── it should not revert on malformed params
+│   ├── when amount is zero
+│   │   └── it should return false with "Zero amount"
+│   ├── when recipient is zero address
+│   │   └── it should return false with "Zero recipient address"
+│   ├── when amount is below minAmount
+│   │   └── it should return false with "Amount below minimum"
+│   ├── when caller native balance is insufficient
+│   │   └── it should return false with "Insufficient balance"
+│   └── when all checks pass
+│       └── it should return true with empty reason
+├── estimateOutput
+│   └── it should return amount and the native sentinel
+├── moduleType
+│   ├── it should return "NATIVE_FORWARD"
+│   └── it should report native input support
+└── encodeDecodeParams
+    ├── it should roundtrip recipient and minAmount
+    ├── it should revert on empty bytes
+    └── it should roundtrip any values [fuzz]

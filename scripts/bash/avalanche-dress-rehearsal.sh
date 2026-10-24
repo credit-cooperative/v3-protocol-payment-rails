@@ -69,6 +69,7 @@ DEPLOYER=$(cast wallet address --mnemonic "${MNEMONIC:-$TEST_MNEMONIC}" --mnemon
 OWNER="${DR_OWNER:-0x70997970C51812dc3A010C7d01b50e0d17dc79C8}"
 KEEPER=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC     # permissionless executor
 RECIPIENT=0x90F79bf6EB2c4f870365E785982E1f101E93b906
+NATIVE=0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE          # PaymentRails.NATIVE_TOKEN(): the key for the native balance
 SAFE_EXIT=0x976EA74026E726554dB657fA54763abd0C3a0aa9   # emergency-exit destination
 FUNDER=0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
 
@@ -200,6 +201,14 @@ step "§6.3 ForwardModule"
 FORWARD=$(deploy_script scripts/solidity/deploy/DeployForwardModule.s.sol) \
   && ok "ForwardModule $FORWARD" || bad "deploy ForwardModule"
 
+step "§6.3b native modules (WrapModule + UnwrapModule take WAVAX; NativeForwardModule is chain-agnostic)"
+WRAPMOD=$(deploy_script scripts/solidity/deploy/DeployWrapModule.s.sol --sig "run(address)" "$WAVAX") \
+  && ok "WrapModule $WRAPMOD" || bad "deploy WrapModule"
+UNWRAPMOD=$(deploy_script scripts/solidity/deploy/DeployUnwrapModule.s.sol --sig "run(address)" "$WAVAX") \
+  && ok "UnwrapModule $UNWRAPMOD" || bad "deploy UnwrapModule"
+NATIVEFWD=$(deploy_script scripts/solidity/deploy/DeployNativeForwardModule.s.sol) \
+  && ok "NativeForwardModule $NATIVEFWD" || bad "deploy NativeForwardModule"
+
 step "§6.4 CCTPBridgeModule"
 BRIDGE=$(deploy_script scripts/solidity/deploy/DeployCCTPBridgeModule.s.sol \
   --sig "run(address,address)" "$TOKEN_MESSENGER_V2" "$USDC") \
@@ -240,6 +249,12 @@ assert_eq "cowModule.vaultRelayer()"   "$(cu $COWMOD 'vaultRelayer()(address)')"
 assert_eq "bridge.usdc()"              "$(cu $BRIDGE 'usdc()(address)')"               "$USDC"
 assert_eq "bridge.tokenMessenger()"    "$(cu $BRIDGE 'tokenMessenger()(address)')"     "$TOKEN_MESSENGER_V2"
 assert_eq "forward.moduleType()"       "$(cast call --rpc-url $RPC $FORWARD 'moduleType()(string)')" '"FORWARD"'
+assert_eq "rails.NATIVE_TOKEN()"       "$(cu $RAILS 'NATIVE_TOKEN()(address)')"            "$NATIVE"
+assert_eq "wrap.wrappedNative()"       "$(cu $WRAPMOD 'wrappedNative()(address)')"         "$WAVAX"
+assert_eq "unwrap.wrappedNative()"     "$(cu $UNWRAPMOD 'wrappedNative()(address)')"       "$WAVAX"
+assert_eq "wrap.moduleType()"          "$(cast call --rpc-url $RPC $WRAPMOD 'moduleType()(string)')" '"WRAP"'
+assert_eq "unwrap.moduleType()"        "$(cast call --rpc-url $RPC $UNWRAPMOD 'moduleType()(string)')" '"UNWRAP"'
+assert_eq "nativeForward.moduleType()" "$(cast call --rpc-url $RPC $NATIVEFWD 'moduleType()(string)')" '"NATIVE_FORWARD"'
 
 step "renounceOwnership is permanently disabled on both owned contracts"
 send_reverts "rails.renounceOwnership() reverts"     "$OWNER" "$RAILS"  "renounceOwnership()"
@@ -292,6 +307,18 @@ send "$FUNDER" "$USDC"  "transfer(address,uint256)" "$RAILS" "500000000" || bad 
 assert_eq "rails WAVAX" "$(bal $WAVAX $RAILS)" "50000000000000000000"
 assert_eq "rails USDC"  "$(bal $USDC $RAILS)"  "500000000"
 
+step "native key: an ERC-20-only module is rejected, then owner routes NATIVE -> WRAP"
+send_reverts "configureToken(NATIVE -> ForwardModule) reverts" "$OWNER" "$RAILS" \
+  "configureToken(address,string,address,uint256,bytes,bool)" "$NATIVE" "FORWARD" "$FORWARD" 0 "$FWD_PARAMS" true
+send "$OWNER" "$RAILS" "configureToken(address,string,address,uint256,bytes,bool)" \
+  "$NATIVE" "WRAP" "$WRAPMOD" 0 "0x" true && ok "NATIVE -> WRAP configured" || bad "configure NATIVE -> WRAP"
+
+step "raw AVAX into the rails: a plain value transfer, no calldata (the settlement-contract path)"
+send "$FUNDER" "$RAILS" --value 2ether || bad "raw AVAX transfer to the rails"
+log_has "$RAILS" "NativeReceived(address,uint256)" && ok "NativeReceived emitted" || bad "no NativeReceived"
+assert_eq "rails native balance" "$(cast balance --rpc-url "$RPC" "$RAILS")" "2000000000000000000"
+assert_eq "getTokenBalance(NATIVE)" "$(cu $RAILS 'getTokenBalance(address)(uint256)' $NATIVE)" "2000000000000000000"
+
 # ══════════════════════════════════════════════════════════════════════════════
 phase "PHASE 6 — §7.2 smoke tests at minimal value"
 
@@ -306,6 +333,39 @@ assert_ge "USDC received from the swap" "$USDC_OUT" "1000000"
 assert_eq "no WAVAX stranded in the module" "$(bal $WAVAX $DEXSWAP)" "0"
 assert_eq "no USDC stranded in the module"  "$(bal $USDC $DEXSWAP)"  "0"
 assert_eq "router allowance revoked" "$(cu $WAVAX 'allowance(address,address)(uint256)' $DEXSWAP $SWAP_ROUTER_02)" "0"
+
+step "NATIVE -> WRAP: keeper routes 2 raw AVAX through the real WAVAX contract"
+WAVAX_BEFORE=$(bal $WAVAX $RAILS)
+PREVIEW_NATIVE=$(cast call --rpc-url "$RPC" "$RAILS" "previewExecution(address)(uint256,address)" "$NATIVE" 2>/dev/null | tail -1)
+assert_eq "previewExecution(NATIVE) reports WAVAX as output" "$PREVIEW_NATIVE" "$WAVAX"
+send "$KEEPER" "$RAILS" "executeAction(address,uint256)" "$NATIVE" 2000000000000000000 || bad "executeAction(NATIVE) wrap"
+log_has "$RAILS" "ActionExecuted(address,string,uint256,uint256,address,address)" && ok "ActionExecuted (WRAP)" || bad "no ActionExecuted for the wrap"
+assert_eq "rails native after wrap" "$(cast balance --rpc-url "$RPC" "$RAILS")" "0"
+assert_eq "rails WAVAX grew by the wrapped amount" "$(python3 -c "print($(bal $WAVAX $RAILS) - $WAVAX_BEFORE)")" "2000000000000000000"
+assert_eq "WrapModule holds no WAVAX" "$(bal $WAVAX $WRAPMOD)" "0"
+
+step "NATIVE -> NATIVE_FORWARD: owner switches the native route, keeper pays raw AVAX to a fresh recipient"
+# A fresh address: the public-mnemonic accounts carry EIP-7702 delegations on some live chains.
+NATIVE_RECIPIENT=$(cast wallet new --json | jq -r '.[0].address')
+NFWD_PARAMS=$(cast abi-encode "f(address,uint256)" "$NATIVE_RECIPIENT" 0)
+send "$OWNER" "$RAILS" "configureToken(address,string,address,uint256,bytes,bool)" \
+  "$NATIVE" "NATIVE_FORWARD" "$NATIVEFWD" 0 "$NFWD_PARAMS" true || bad "configure NATIVE -> NATIVE_FORWARD"
+send "$FUNDER" "$RAILS" --value 1ether || bad "raw AVAX transfer (second)"
+send "$KEEPER" "$RAILS" "executeAction(address,uint256)" "$NATIVE" 1000000000000000000 || bad "executeAction(NATIVE) forward"
+assert_eq "recipient received raw AVAX" "$(cast balance --rpc-url "$RPC" "$NATIVE_RECIPIENT")" "1000000000000000000"
+assert_eq "rails native after forward" "$(cast balance --rpc-url "$RPC" "$RAILS")" "0"
+
+step "WAVAX -> UNWRAP: real WAVAX.withdraw() puts AVAX back on the rails, then the native route pays it out"
+send "$OWNER" "$RAILS" "configureToken(address,string,address,uint256,bytes,bool)" \
+  "$WAVAX" "UNWRAP" "$UNWRAPMOD" 0 "0x" true || bad "configure WAVAX -> UNWRAP"
+send "$KEEPER" "$RAILS" "executeAction(address,uint256)" "$WAVAX" 1000000000000000000 || bad "executeAction(WAVAX) unwrap"
+log_has "$RAILS" "NativeReturned(address,address,uint256)" && ok "NativeReturned emitted by the unwrap" || bad "no NativeReturned from unwrap"
+log_has "$RAILS" "NativeReceived(address,uint256)" && bad "an unwrap must not be logged as a payer receipt" || ok "no payer receipt logged for the unwrap"
+assert_eq "rails native after unwrap" "$(cast balance --rpc-url "$RPC" "$RAILS")" "1000000000000000000"
+assert_eq "UnwrapModule holds no AVAX" "$(cast balance --rpc-url "$RPC" "$UNWRAPMOD")" "0"
+send "$KEEPER" "$RAILS" "executeAction(address,uint256)" "$NATIVE" 1000000000000000000 || bad "executeAction(NATIVE) forward (unwrapped)"
+assert_eq "recipient received the unwrapped AVAX too" "$(cast balance --rpc-url "$RPC" "$NATIVE_RECIPIENT")" "2000000000000000000"
+send_reverts "executeAction(NATIVE) with nothing left reverts" "$KEEPER" "$RAILS" "executeAction(address,uint256)" "$NATIVE" 1
 
 step "CCTP: bridge 100 USDC through Circle's TokenMessengerV2"
 USDC_BEFORE=$(bal $USDC $RAILS)

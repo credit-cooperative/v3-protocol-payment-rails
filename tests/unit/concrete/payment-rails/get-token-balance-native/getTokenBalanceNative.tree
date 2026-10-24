@@ -1,0 +1,7 @@
+PaymentRails_GetTokenBalanceNative
+├── it should expose the native sentinel through NATIVE_TOKEN
+├── when token is NATIVE_TOKEN
+│   ├── it should return the native balance
+│   └── it should include value that arrived without calling receive
+└── when token is an ERC20
+    └── it should return the ERC20 balance

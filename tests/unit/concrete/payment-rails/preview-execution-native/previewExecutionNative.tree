@@ -1,0 +1,12 @@
+PaymentRails_PreviewExecutionNative
+├── when the native key is not configured
+│   └── it should revert with PaymentRails_NoActionConfigured
+├── given native balance is zero
+│   └── it should revert with PaymentRails_ZeroAmount
+├── given native balance is below minBalance
+│   └── it should revert with PaymentRails_BelowMinimumBalance
+├── when module validation fails
+│   └── it should revert with the module reason
+└── given a native route with sufficient balance
+    ├── it should return the native balance as estimatedOutput
+    └── it should return the module output token
