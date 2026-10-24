@@ -184,8 +184,8 @@ assert_ge "funder USDC from Uniswap" "$FUNDER_USDC" "1000000000"
 # ══════════════════════════════════════════════════════════════════════════════
 phase "PHASE 2 — §6.1-6.6 deploy from the production scripts"
 
-step "§6.1 PaymentRailsFactory"
-RAILS_FACTORY=$(deploy_script scripts/solidity/deploy/DeployPaymentRailsFactory.s.sol --sig "run(address)" "$OWNER") \
+step "§6.1 PaymentRailsFactory (wrappedNative = WAVAX, so every instance accepts native AVAX)"
+RAILS_FACTORY=$(deploy_script scripts/solidity/deploy/DeployPaymentRailsFactory.s.sol --sig "run(address,address)" "$OWNER" "$WAVAX") \
   && ok "PaymentRailsFactory $RAILS_FACTORY" || bad "deploy PaymentRailsFactory"
 
 step "§6.2 PaymentRailsFactory.create(owner) — owner-gated; sent by the factory owner"
@@ -232,6 +232,8 @@ ok "CowSwapModule $COWMOD"
 phase "PHASE 4 — §7.1 wiring assertions (BEFORE any funding)"
 
 assert_eq "rails.owner()"              "$(cu $RAILS 'owner()(address)')"               "$OWNER"
+assert_eq "railsFactory.wrappedNative()" "$(cu $RAILS_FACTORY 'wrappedNative()(address)')" "$WAVAX"
+assert_eq "rails.wrappedNative()"      "$(cu $RAILS 'wrappedNative()(address)')"       "$WAVAX"
 assert_eq "dexSwap.router()"           "$(cu $DEXSWAP 'router()(address)')"            "$SWAP_ROUTER_02"
 assert_eq "dexSwap.sequencerUptimeFeed()" "$(cu $DEXSWAP 'sequencerUptimeFeed()(address)')" "0x0000000000000000000000000000000000000000"
 assert_eq "cowModule.paymentRails()"   "$(cu $COWMOD 'paymentRails()(address)')"       "$RAILS"
@@ -291,6 +293,34 @@ send "$FUNDER" "$WAVAX" "transfer(address,uint256)" "$RAILS" "500000000000000000
 send "$FUNDER" "$USDC"  "transfer(address,uint256)" "$RAILS" "500000000" || bad "fund USDC"
 assert_eq "rails WAVAX" "$(bal $WAVAX $RAILS)" "50000000000000000000"
 assert_eq "rails USDC"  "$(bal $USDC $RAILS)"  "500000000"
+
+step "native AVAX: a raw value transfer into the rails (the settlement-contract path), then a permissionless wrap"
+send "$FUNDER" "$RAILS" --value 2ether || bad "raw AVAX transfer to the rails"
+log_has "$RAILS" "NativeReceived(address,uint256)" && ok "NativeReceived emitted" || bad "no NativeReceived"
+assert_eq "rails native balance" "$(cast balance --rpc-url "$RPC" "$RAILS")" "2000000000000000000"
+send "$KEEPER" "$RAILS" "wrapNative()" || bad "wrapNative() from the keeper"
+log_has "$RAILS" "NativeWrapped(address,uint256)" && ok "NativeWrapped emitted" || bad "no NativeWrapped"
+assert_eq "rails native balance after wrap" "$(cast balance --rpc-url "$RPC" "$RAILS")" "0"
+assert_eq "rails WAVAX after wrap (50 funded + 2 wrapped through the real WAVAX contract)" "$(bal $WAVAX $RAILS)" "52000000000000000000"
+send_reverts "wrapNative() with nothing to wrap reverts" "$KEEPER" "$RAILS" "wrapNative()"
+
+step "owner-only native exit: sweepNative(recipient) unwraps every WAVAX and pays all AVAX to a fresh recipient"
+send "$FUNDER" "$RAILS" --value 1ether || bad "second raw AVAX transfer to the rails"
+send_reverts "sweepNative() from the keeper reverts" "$KEEPER" "$RAILS" "sweepNative(address)" "$KEEPER"
+WAVAX_BEFORE_SWEEP=$(bal $WAVAX $RAILS)
+EXPECTED_SWEEP=$(python3 -c "print($WAVAX_BEFORE_SWEEP + $(cast balance --rpc-url "$RPC" "$RAILS"))")
+# A fresh address: the public-mnemonic accounts carry EIP-7702 delegations on some live chains.
+NATIVE_RECIPIENT=$(cast wallet new --json | jq -r '.[0].address')
+send "$OWNER" "$RAILS" "sweepNative(address)" "$NATIVE_RECIPIENT" || bad "sweepNative() from the owner"
+log_has "$RAILS" "NativeSwept(address,uint256)" && ok "NativeSwept emitted" || bad "no NativeSwept"
+log_has "$RAILS" "NativeReceived(address,uint256)" && bad "the WAVAX payout must not be logged as a receipt" || ok "no receipt logged for the wrapper payout"
+assert_eq "rails WAVAX after sweep" "$(bal $WAVAX $RAILS)" "0"
+assert_eq "rails native after sweep" "$(cast balance --rpc-url "$RPC" "$RAILS")" "0"
+assert_eq "recipient received raw AVAX + every unwrapped WAVAX" "$(cast balance --rpc-url "$RPC" "$NATIVE_RECIPIENT")" "$EXPECTED_SWEEP"
+send_reverts "sweepNative() with nothing left reverts" "$OWNER" "$RAILS" "sweepNative(address)" "$NATIVE_RECIPIENT"
+# Re-fund WAVAX so the later CoW order step still has something to sell.
+send "$FUNDER" "$WAVAX" "transfer(address,uint256)" "$RAILS" "5000000000000000000" || bad "re-fund WAVAX after the sweep"
+assert_eq "rails WAVAX re-funded" "$(bal $WAVAX $RAILS)" "5000000000000000000"
 
 # ══════════════════════════════════════════════════════════════════════════════
 phase "PHASE 6 — §7.2 smoke tests at minimal value"

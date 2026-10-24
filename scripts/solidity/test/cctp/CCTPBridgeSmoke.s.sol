@@ -60,7 +60,7 @@ contract CCTPBridgeSmoke is Script {
         address paymentRailsAddr = vm.envAddress("PAYMENT_RAILS_ADDRESS");
         address moduleAddr = vm.envAddress("BRIDGE_MODULE");
 
-        PaymentRails paymentRails = PaymentRails(paymentRailsAddr);
+        PaymentRails paymentRails = PaymentRails(payable(paymentRailsAddr));
         CCTPBridgeModule module = CCTPBridgeModule(moduleAddr);
 
         Config memory cfg = _loadConfig();

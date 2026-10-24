@@ -27,6 +27,12 @@ We aim to acknowledge within 72 hours and will coordinate disclosure with you.
 
 - Issues in dependencies (OpenZeppelin, forge-std, etc.)
 
+## Known limitations (accepted, informational)
+
+These are by design and will not be treated as vulnerabilities unless a third party can lose funds:
+
+- **Stray funds sent directly to a stateless module.** Modules hold nothing between calls and have no rescue function. Tokens or native value sent straight to a module address are unrecoverable; only the sender can lose them.
+
 ## Supported versions
 
 We support the latest tagged `vX.Y.Z` release on `main`. `deployed/...` tags reference frozen commits and will not receive patches; integrators should re-deploy from the current `vX.Y.Z` line.

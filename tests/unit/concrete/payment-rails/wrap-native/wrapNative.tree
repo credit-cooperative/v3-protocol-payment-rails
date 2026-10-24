@@ -1,0 +1,26 @@
+PaymentRails_WrapNative
+├── given native ingress is disabled
+│   └── it should revert with PaymentRails_NativeNotSupported
+├── given native balance is zero
+│   └── it should revert with PaymentRails_ZeroNativeBalance
+├── given the wrapper credits less than the deposit
+│   ├── it should revert with PaymentRails_WrapAmountMismatch
+│   └── it should leave the native balance untouched
+└── given native balance is non-zero
+    ├── it should return the wrapped amount
+    ├── it should set the native balance to zero
+    ├── it should increase the wrapped balance by exactly the native balance
+    ├── it should move the native value into the wrapper
+    ├── it should emit NativeWrapped with caller and amount
+    ├── when called by a non-owner
+    │   └── it should succeed
+    ├── given value arrived without calling receive
+    │   └── it should wrap the forced balance too
+    ├── when the wrapper re-enters wrapNative
+    │   ├── it should block the re-entrant call
+    │   └── it should complete the outer call
+    ├── given wrappedNative is configured for an action
+    │   └── it should route the wrapped balance through executeAction
+    └── fuzz
+        └── when native balance is any non-zero amount
+            └── it should wrap exactly that amount

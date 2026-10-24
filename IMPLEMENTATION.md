@@ -109,7 +109,7 @@ Cross-chain USDC bridge via Circle's CCTP V2.
 ### Configuring PaymentRails to Forward USDC
 
 ```solidity
-PaymentRails paymentRails = new PaymentRails(owner);
+PaymentRails paymentRails = new PaymentRails(owner, WETH); // wrappedNative; address(0) disables native ingress
 ForwardModule forwardModule = new ForwardModule();
 
 DataTypes.ForwardParams memory params = DataTypes.ForwardParams({
@@ -137,7 +137,7 @@ paymentRails.executeAction(USDC_ADDRESS, balance);
 
 ```solidity
 // On Avalanche: swap WAVAX → USDC, then bridge USDC to Base
-PaymentRails avaxRails = new PaymentRails(owner);
+PaymentRails avaxRails = new PaymentRails(owner, WAVAX); // native AVAX sent here is wrapped by wrapNative()
 DexSwapModule dexSwap = new DexSwapModule(owner);
 CCTPBridgeModule cctpBridge = new CCTPBridgeModule(usdcAddress, tokenMessengerV2, owner);
 
@@ -161,8 +161,18 @@ avaxRails.configureToken(
     true
 );
 
+// Native AVAX paid straight to avaxRails (e.g. by a settlement contract) is accepted by
+// receive() and converted on demand, by anyone, into the WAVAX route configured above:
+avaxRails.wrapNative();              // wraps the entire native balance 1:1
+avaxRails.executeAction(WAVAX, avaxRails.getTokenBalance(WAVAX));
+
+// Owner-only exit: unwraps every WAVAX and pays the whole native balance out in one call,
+// so nothing done between blocks can get ahead of it. Also the recovery path for force-fed
+// value. Wrapping stays permissionless for the keeper.
+avaxRails.sweepNative(treasury);   // owner: all WAVAX unwrapped + all AVAX -> treasury
+
 // On Base: forward USDC to spigot
-PaymentRails baseRails = new PaymentRails(owner);
+PaymentRails baseRails = new PaymentRails(owner, WETH);
 ForwardModule forwardModule = new ForwardModule();
 
 baseRails.configureToken(

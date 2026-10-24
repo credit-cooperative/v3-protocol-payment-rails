@@ -95,7 +95,7 @@ contract AtumModuleIntegrationTest is Test {
         escrow = makeAddr("escrow");
 
         permit2 = new MockPermit2(PERMIT2_DOMAIN_SEPARATOR);
-        nodeContract = new PaymentRails(nodeOwner);
+        nodeContract = new PaymentRails(nodeOwner, address(0));
         module = new AtumModule(address(permit2), address(nodeContract), moduleOwner, keeper);
 
         sourceToken = new MockERC20("Source Token", "SRC");
@@ -686,7 +686,7 @@ contract AtumModuleIntegrationTest is Test {
     }
 
     function test_WhenSharedWithDifferentNode_ExecutionReturnsFalse() external {
-        PaymentRails otherNode = new PaymentRails(nodeOwner);
+        PaymentRails otherNode = new PaymentRails(nodeOwner, address(0));
         sourceToken.mint(address(otherNode), PAYMENT_AMOUNT);
 
         bytes memory moduleParams = _defaultEncodedParams();

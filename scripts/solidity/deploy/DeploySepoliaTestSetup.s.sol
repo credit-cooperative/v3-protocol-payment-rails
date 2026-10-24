@@ -59,7 +59,7 @@ contract DeploySepoliaTestSetup is Script {
 
         vm.startBroadcast(deployerKey);
 
-        paymentRails = new PaymentRails(deployer);
+        paymentRails = new PaymentRails(deployer, address(0));
         forwardModule = new ForwardModule();
         bridgeModule = new CCTPBridgeModule(TOKEN_MESSENGER_V2, USDC_SEPOLIA);
 

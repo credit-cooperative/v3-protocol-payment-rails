@@ -62,7 +62,7 @@ contract ForwardDryRun is Script, StdCheats {
         vm.startPrank(deployer);
 
         // --- Deploy ---
-        PaymentRails paymentRails = new PaymentRails(deployer);
+        PaymentRails paymentRails = new PaymentRails(deployer, address(0));
         console2.log("[DEPLOYED] PaymentRails:   ", address(paymentRails));
 
         ForwardModule module = new ForwardModule();

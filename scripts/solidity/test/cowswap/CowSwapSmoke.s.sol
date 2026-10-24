@@ -58,7 +58,7 @@ contract CowSwapSmoke is Script {
         address paymentRailsAddr = vm.envAddress("PAYMENT_RAILS_ADDRESS");
         address moduleAddr = vm.envAddress("MODULE_ADDRESS");
 
-        PaymentRails paymentRails = PaymentRails(paymentRailsAddr);
+        PaymentRails paymentRails = PaymentRails(payable(paymentRailsAddr));
         CowSwapModule module = CowSwapModule(moduleAddr);
 
         Config memory cfg = _loadConfig();

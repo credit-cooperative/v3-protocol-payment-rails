@@ -1,6 +1,12 @@
 PaymentRails_Constructor
 ├── when initialOwner is zero address
 │   └── it should revert with OwnableInvalidOwner
-└── when initialOwner is valid address
+├── when wrappedNative has no code
+│   └── it should revert with PaymentRails_WrappedNativeNotContract
+├── when wrappedNative is zero address
+│   ├── it should set the owner
+│   └── it should set wrappedNative to zero address
+└── when wrappedNative is a contract
     ├── it should set the owner
-    └── it should set pendingOwner to zero address
+    ├── it should set pendingOwner to zero address
+    └── it should set wrappedNative

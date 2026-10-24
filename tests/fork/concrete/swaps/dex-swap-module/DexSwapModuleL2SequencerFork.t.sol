@@ -70,7 +70,7 @@ contract DexSwapModuleL2SequencerFork_Test is Test {
 
         vm.startPrank(owner);
         module = new DexSwapModule(UNISWAP_V3_ROUTER, SEQUENCER_UPTIME_FEED, GRACE_PERIOD);
-        paymentRails = new PaymentRails(owner);
+        paymentRails = new PaymentRails(owner, address(0));
         vm.stopPrank();
 
         deal(WETH, address(paymentRails), WETH_SELL_AMOUNT * 10);

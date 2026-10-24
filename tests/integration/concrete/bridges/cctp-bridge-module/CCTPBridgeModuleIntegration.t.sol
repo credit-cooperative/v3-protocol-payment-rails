@@ -68,7 +68,7 @@ contract CCTPBridgeModuleIntegrationTest is Test {
 
         bridgeModule = new CCTPBridgeModule(address(tokenMessenger), address(usdc));
 
-        paymentRailsContract = new PaymentRails(paymentRailsOwner);
+        paymentRailsContract = new PaymentRails(paymentRailsOwner, address(0));
 
         bytes memory moduleParams = _buildModuleParams(DOMAIN_BASE, MINT_RECIPIENT, MAX_FEE_BPS, FINALITY_FAST, "");
         vm.prank(paymentRailsOwner);
@@ -301,7 +301,7 @@ contract CCTPBridgeModuleIntegrationTest is Test {
     function test_MultiPaymentRails_TwoPaymentRailsShareOneModule_DifferentRecipients() external {
         bytes32 recipientB = bytes32(uint256(uint160(0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa)));
 
-        PaymentRails nodeB = new PaymentRails(paymentRailsOwner);
+        PaymentRails nodeB = new PaymentRails(paymentRailsOwner, address(0));
         bytes memory paramsB = _buildModuleParams(DOMAIN_BASE, recipientB, MAX_FEE_BPS, FINALITY_FAST, "");
         vm.prank(paymentRailsOwner);
         nodeB.configureToken(address(usdc), "CCTP_BRIDGE", address(bridgeModule), MIN_BALANCE, paramsB, true);
@@ -328,7 +328,7 @@ contract CCTPBridgeModuleIntegrationTest is Test {
         uint32 domainArbitrum = 3;
         bytes32 recipientArb = bytes32(uint256(uint160(0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa)));
 
-        PaymentRails nodeB = new PaymentRails(paymentRailsOwner);
+        PaymentRails nodeB = new PaymentRails(paymentRailsOwner, address(0));
         bytes memory paramsB = _buildModuleParams(domainArbitrum, recipientArb, uint16(0), FINALITY_FAST, "");
         vm.prank(paymentRailsOwner);
         nodeB.configureToken(address(usdc), "CCTP_BRIDGE", address(bridgeModule), MIN_BALANCE, paramsB, true);
@@ -350,7 +350,7 @@ contract CCTPBridgeModuleIntegrationTest is Test {
     }
 
     function test_MultiPaymentRails_InterleavedExecutions() external {
-        PaymentRails nodeB = new PaymentRails(paymentRailsOwner);
+        PaymentRails nodeB = new PaymentRails(paymentRailsOwner, address(0));
         bytes memory paramsB = _buildModuleParams(DOMAIN_BASE, MINT_RECIPIENT, MAX_FEE_BPS, FINALITY_FAST, "");
         vm.prank(paymentRailsOwner);
         nodeB.configureToken(address(usdc), "CCTP_BRIDGE", address(bridgeModule), MIN_BALANCE, paramsB, true);

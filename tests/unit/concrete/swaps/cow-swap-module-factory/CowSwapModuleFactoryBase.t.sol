@@ -60,7 +60,7 @@ abstract contract CowSwapModuleFactoryBase is Test {
         // A sequencer uptime feed must be a real contract; answer 0 means the sequencer is up.
         sequencerFeed = address(new MockChainlinkAggregator(0, 0));
 
-        paymentRails = address(new PaymentRails(railsOwner));
+        paymentRails = address(new PaymentRails(railsOwner, address(0)));
 
         cowSettlement = new MockCowSettlement(DOMAIN_SEPARATOR, vaultRelayer);
 
@@ -75,6 +75,6 @@ abstract contract CowSwapModuleFactoryBase is Test {
 
     /// @dev Deploys a fresh PaymentRails owned by `instanceOwner`.
     function deployPaymentRails(address instanceOwner) internal returns (address) {
-        return address(new PaymentRails(instanceOwner));
+        return address(new PaymentRails(instanceOwner, address(0)));
     }
 }

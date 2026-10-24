@@ -94,7 +94,7 @@ contract DexSwapModuleIntegrationTest is Test {
         module = new DexSwapModule(address(router), address(0), 0);
 
         vm.prank(owner);
-        paymentRails = new PaymentRails(owner);
+        paymentRails = new PaymentRails(owner, address(0));
 
         sellToken = new MockERC20("USDC", "USDC");
         buyToken = new MockERC20("WETH", "WETH");
@@ -588,6 +588,6 @@ contract DexSwapModuleIntegrationTest is Test {
 
     function _createPaymentRails() internal returns (PaymentRails) {
         vm.prank(owner);
-        return new PaymentRails(owner);
+        return new PaymentRails(owner, address(0));
     }
 }

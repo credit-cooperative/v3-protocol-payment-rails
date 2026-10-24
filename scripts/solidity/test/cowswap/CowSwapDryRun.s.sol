@@ -69,7 +69,7 @@ contract CowSwapDryRun is Script, StdCheats {
 
         // --- DEPLOY ---
         // PaymentRails first — CowSwapModule needs its address at construction.
-        PaymentRails paymentRails = new PaymentRails(deployer);
+        PaymentRails paymentRails = new PaymentRails(deployer, address(0));
         console2.log("[DEPLOYED] PaymentRails:          ", address(paymentRails));
 
         CowSwapModule module = new CowSwapModule(GPV2_SETTLEMENT, deployer, address(paymentRails), address(0), 0);

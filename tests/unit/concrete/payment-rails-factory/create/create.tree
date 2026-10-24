@@ -6,6 +6,7 @@ PaymentRailsFactory_Create
 └── when owner is valid address
     ├── it should deploy a new PaymentRails contract
     ├── it should set the owner on the deployed PaymentRails
+    ├── it should set wrappedNative on the deployed PaymentRails
     ├── it should register the instance in the factory
     ├── it should increment the instance count
     ├── it should emit a PaymentRailsCreated event

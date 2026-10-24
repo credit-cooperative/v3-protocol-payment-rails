@@ -4,7 +4,8 @@ pragma solidity 0.8.29;
 /// @title IPaymentRailsFactory
 /// @notice Interface for the factory that deploys and tracks PaymentRails instances.
 /// @dev Supports both CREATE (simple) and CREATE2 (deterministic) deployment. Maintains an on-chain
-/// registry of all deployed instances for trust verification.
+/// registry of all deployed instances for trust verification. Every instance is created with the
+/// factory's {wrappedNative}.
 interface IPaymentRailsFactory {
     /*//////////////////////////////////////////////////////////////////////////
                                     EVENTS
@@ -50,10 +51,16 @@ interface IPaymentRailsFactory {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Predict the address of a deterministic deployment.
+    /// @dev The init code hash covers both `railsOwner` and the factory's {wrappedNative}.
     /// @param railsOwner The initial owner that would be passed to {createDeterministic}.
     /// @param salt The salt that would be passed to {createDeterministic}.
     /// @return predicted The address where the PaymentRails would be deployed.
     function predictDeterministicAddress(address railsOwner, bytes32 salt) external view returns (address predicted);
+
+    /// @notice Returns the wrapped-native token passed to every created PaymentRails.
+    /// @dev `address(0)` means native ingress is disabled on every instance this factory creates.
+    /// @return The wrapped-native token address.
+    function wrappedNative() external view returns (address);
 
     /// @notice Check whether an address was deployed by this factory.
     /// @param instance The address to check.

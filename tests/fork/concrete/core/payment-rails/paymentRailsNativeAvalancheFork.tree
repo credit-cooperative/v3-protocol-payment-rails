@@ -1,0 +1,33 @@
+PaymentRails_NativeAvalancheFork
+├── when AVAX is sent with call
+│   ├── it should accept the value
+│   └── it should emit NativeReceived
+├── when AVAX is sent with transfer
+│   └── it should accept the value within the 2300 gas stipend
+├── when wrapNative is called
+│   ├── it should mint real WAVAX to the rails one to one
+│   ├── it should leave zero native balance on the rails
+│   └── it should move the AVAX into the WAVAX contract
+├── when the wrapped balance is executed
+│   ├── it should swap WAVAX to USDC through the real SwapRouter02
+│   ├── it should land within the Chainlink oracle band
+│   └── it should leave the module clean
+├── when wrapNative is called with nothing to wrap
+│   └── it should revert with PaymentRails_ZeroNativeBalance
+├── when the owner sweeps raw AVAX
+│   ├── it should pay the whole native balance to the recipient
+│   └── it should emit NativeSwept
+├── when the owner sweeps with real WAVAX on the rails
+│   ├── it should unwrap through the real WAVAX contract
+│   ├── it should not log the WAVAX payout as a receipt
+│   └── it should pay native plus unwrapped to the recipient
+├── when the owner sweeps to a contract
+│   └── it should deliver the value
+├── when a non-owner sweeps
+│   └── it should revert
+├── given a rail without a wrapper
+│   └── it should still let the owner sweep force-fed AVAX
+└── when created by a factory built with WAVAX
+    ├── it should deploy to the predicted address
+    ├── it should carry WAVAX as wrappedNative
+    └── it should accept and wrap AVAX

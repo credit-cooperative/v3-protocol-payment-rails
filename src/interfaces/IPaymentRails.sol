@@ -14,6 +14,12 @@ import { DataTypes } from "../types/DataTypes.sol";
 ///
 /// Safety mechanisms include minimum-balance thresholds, enable/disable flags, module validation,
 /// and reentrancy protection.
+///
+/// Non-zero native value is accepted by `receive` and converted by {wrapNative} into {wrappedNative}, after
+/// which it is routed like any other token. A zero {wrappedNative} disables native ingress. Wrapping is
+/// permissionless; the only native egress is the owner-only {sweepNative}, which unwraps the whole wrapped
+/// balance (however it arrived) and pays out everything in one call, so a stranger wrapping ahead of it changes
+/// nothing. A configured route for {wrappedNative} can still be executed by anyone before the sweep lands.
 interface IPaymentRails {
     /*//////////////////////////////////////////////////////////////////////////
                                     EVENTS
@@ -57,6 +63,23 @@ interface IPaymentRails {
     event ActionFailed(
         address indexed token, string actionType, uint256 amount, string reason, address indexed executor
     );
+
+    /// @notice Emitted when native value is received from anyone but the wrapper.
+    /// @dev The wrapper's payout during {sweepNative} is internal movement and emits nothing here, so summing
+    /// this event gives payer income only.
+    /// @param sender The address that sent the value.
+    /// @param amount The value received, in wei.
+    event NativeReceived(address indexed sender, uint256 amount);
+
+    /// @notice Emitted when the native balance is wrapped into the wrapped-native token.
+    /// @param caller The address that triggered the wrap.
+    /// @param amount The native value wrapped, in wei.
+    event NativeWrapped(address indexed caller, uint256 amount);
+
+    /// @notice Emitted when the owner sweeps the native balance out.
+    /// @param recipient The address that received the value.
+    /// @param amount The total value sent, including the unwrapped balance, in wei.
+    event NativeSwept(address indexed recipient, uint256 amount);
 
     /*//////////////////////////////////////////////////////////////////////////
                                   CONFIGURATION
@@ -120,8 +143,46 @@ interface IPaymentRails {
     function executeAction(address token, uint256 amount) external returns (bool success);
 
     /*//////////////////////////////////////////////////////////////////////////
+                                NATIVE INGRESS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Wraps the entire native balance into the wrapped-native token.
+    /// @dev Permissionless. Emits a {NativeWrapped} event. Also sweeps value that arrived without `receive`.
+    ///
+    /// Requirements:
+    /// - {wrappedNative} must not be `address(0)`.
+    /// - The native balance must be greater than zero.
+    /// - The wrapper must credit exactly the deposited amount.
+    ///
+    /// @return amount The native value wrapped, in wei.
+    function wrapNative() external returns (uint256 amount);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                  NATIVE EXIT
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Unwraps the whole wrapped balance and sends the entire native balance to `recipient`.
+    /// @dev Owner-only. Emits a {NativeSwept} event; the wrapper's payout is internal and emits nothing. Works on
+    /// rails without a wrapper too, so force-fed value is always recoverable. Reverts if the recipient refuses.
+    ///
+    /// Requirements:
+    /// - The caller must be the contract owner.
+    /// - `recipient` must not be `address(0)`.
+    /// - The combined native and wrapped balance must be greater than zero.
+    /// - The wrapper must pay out exactly the wrapped balance.
+    ///
+    /// @param recipient The address that receives the value.
+    /// @return amount The total native value sent, in wei.
+    function sweepNative(address recipient) external returns (uint256 amount);
+
+    /*//////////////////////////////////////////////////////////////////////////
                             CONSTANT FUNCTIONS
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Returns the wrapped-native token (e.g. WETH, WAVAX); `address(0)` means native ingress is disabled.
+    /// @dev When disabled, value that bypasses `receive` can still leave through {sweepNative}.
+    /// @return The wrapped-native token address.
+    function wrappedNative() external view returns (address);
 
     /// @notice Returns the full configuration for a token.
     /// @dev Returns a zero-initialized struct if the token is not configured.
@@ -136,7 +197,9 @@ interface IPaymentRails {
 
     /// @notice Preview the execution outcome for a token action.
     /// @dev Validates all requirements and calls {IActionModule.validate} and {IActionModule.estimateOutput}.
-    /// Reverts with specific errors if execution would fail.
+    /// Reverts with specific errors if execution would fail. For {wrappedNative}, reverts with
+    /// `PaymentRails_NativePendingWrap` when the wrapped balance is short but native value is waiting for
+    /// {wrapNative}, so a keeper learns to wrap first.
     ///
     /// @param token Token address to preview.
     /// @return estimatedOutput Estimated output amount.

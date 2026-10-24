@@ -70,7 +70,7 @@ contract CowSwapModuleFactoryL2SequencerFork_Test is Test {
         railsOwner = makeAddr("railsOwner");
         moduleOwner = makeAddr("moduleOwner");
 
-        paymentRails = new PaymentRails(railsOwner);
+        paymentRails = new PaymentRails(railsOwner, address(0));
         factory = new CowSwapModuleFactory(factoryOwner, GPV2_SETTLEMENT, SEQUENCER_UPTIME_FEED, GRACE_PERIOD);
 
         // validate() measures the caller's balance, so fund this contract as the would-be PaymentRails.

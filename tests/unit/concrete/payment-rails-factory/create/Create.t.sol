@@ -26,7 +26,13 @@ contract Create_Test is PaymentRailsFactoryBase {
 
     function test_WhenOwnerIsValid_ShouldSetOwner() external {
         address instance = factory.create(owner);
-        assertEq(PaymentRails(instance).owner(), owner);
+        assertEq(PaymentRails(payable(instance)).owner(), owner);
+    }
+
+    function test_WhenOwnerIsValid_ShouldSetWrappedNative() external {
+        address instance = factory.create(owner);
+        assertEq(PaymentRails(payable(instance)).wrappedNative(), address(weth));
+        assertEq(PaymentRails(payable(instance)).wrappedNative(), factory.wrappedNative());
     }
 
     function test_WhenOwnerIsValid_ShouldRegisterInstance() external {
