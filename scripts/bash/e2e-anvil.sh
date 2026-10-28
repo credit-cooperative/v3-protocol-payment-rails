@@ -28,7 +28,7 @@ cd "$ROOT"
 # Base.s.sol refuses that on a non-local chain id unless told the target is a local node.
 export ALLOW_TEST_MNEMONIC=true
 
-RPC="${E2E_RPC:-http://127.0.0.1:8545}"
+RPC="${E2E_RPC:-http://127.0.0.1:${E2E_PORT:-8545}}"   # must follow the port anvil is started on
 WORKDIR="${E2E_WORKDIR:-$(mktemp -d)}"
 ANVIL_LOG="$WORKDIR/anvil.log"
 

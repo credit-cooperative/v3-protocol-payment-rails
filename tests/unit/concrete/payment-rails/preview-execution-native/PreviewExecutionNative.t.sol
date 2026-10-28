@@ -63,6 +63,36 @@ contract PaymentRailsPreviewExecutionNativeTest is PaymentRailsBase {
         paymentRails.previewExecution(address(weth));
     }
 
+    modifier givenWrappedConfiguredWithZeroMin() {
+        vm.prank(owner);
+        paymentRails.configureToken(address(weth), ACTION_TYPE, address(actionModule), 0, _defaultModuleParams(), true);
+        _;
+    }
+
+    function test_RevertGiven_MinBalanceIsZeroWithNativePendingAndNoWrappedBalance()
+        external
+        givenWrappedConfiguredWithZeroMin
+    {
+        _sendNative(executor, PENDING);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRails_NativePendingWrap.selector, PENDING));
+        paymentRails.previewExecution(address(weth));
+    }
+
+    function test_GivenMinBalanceIsZeroWithNativePendingAndSomeWrappedBalance()
+        external
+        givenWrappedConfiguredWithZeroMin
+    {
+        _sendNative(executor, WETH_MIN / 2);
+        vm.prank(owner);
+        paymentRails.wrapNative();
+        _sendNative(executor, PENDING);
+
+        (uint256 estimated,) = paymentRails.previewExecution(address(weth));
+
+        assertEq(estimated, WETH_MIN / 2, "with a zero minimum any wrapped balance previews on its own");
+    }
+
     function test_RevertGiven_NoNativeIsPendingAndTheWrappedBalanceIsZero() external givenWrappedConfigured {
         vm.expectRevert(Errors.PaymentRails_ZeroAmount.selector);
         paymentRails.previewExecution(address(weth));

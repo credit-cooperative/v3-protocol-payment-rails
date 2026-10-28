@@ -37,6 +37,7 @@ These are by design and will not be treated as vulnerabilities unless a third pa
 - **Zero-value native transfers revert.** Every `NativeReceived` is a real balance increase; a payer that sends zero value inside a batch sees the batch revert.
 - **`previewExecution` reports pending native only when the wrapped balance is short.** Once the wrapped balance meets `minBalance`, the preview prices it alone and ignores native value that still waits for `wrapNative()`.
 - **Chains whose native coin also has an ERC-20 view** (Polygon PoS `0x…1010`, Celo). Do not configure that ERC-20 address as a route: `wrapNative()` moves the same balance.
+- **The sweep goes through the wrapper's `withdraw`.** `sweepNative()` unwraps before it pays, so a wrapper whose `withdraw` can be paused or upgraded (proxy predeploys such as Arbitrum's aeWETH) could hold raw native up as well. Deploy rails only against immutable WETH9-style wrappers (WETH9, WAVAX), which is what the deploy scripts and the rehearsal assume.
 - **A new wrapper means a new factory.** `wrappedNative` is part of the CREATE2 init code, so `createDeterministic` with one salt gives different addresses on chains with different wrappers, and contracts that hold the `PaymentRailsFactory` immutably (`AtumModuleFactory`) must be redeployed to accept rails from the new one.
 
 ## Supported versions

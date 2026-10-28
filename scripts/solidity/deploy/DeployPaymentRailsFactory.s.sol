@@ -19,6 +19,7 @@ import { BaseScript } from "../Base.s.sol";
 ///
 ///      `wrappedNative` is the chain's wrapped-native token (WETH, WAVAX), baked into every instance the
 ///      factory creates. Pass `address(0)` to disable native ingress. Changing it later means a new factory.
+///      Use an immutable WETH9-style wrapper (WETH9, WAVAX): `sweepNative` unwraps through it before paying out.
 ///
 ///      Contracts that check rail provenance against this factory (AtumModuleFactory) hold its address immutably:
 ///      redeploy them against the new factory and record both in `deployments/<chainId>.json`.

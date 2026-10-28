@@ -10,8 +10,8 @@ import { DataTypes } from "../../../src/types/DataTypes.sol";
 
 /// @title DeploySepoliaTestSetup
 /// @author Credit Cooperative
-/// @notice One-shot Sepolia bring-up: deploys PaymentRails + ForwardModule + CCTPBridgeModule,
-///         and configures USDC -> BRIDGE and TEST_TOKEN -> FORWARD.
+/// @notice One-shot Sepolia bring-up: deploys PaymentRails (native ingress via Sepolia WETH9) + ForwardModule +
+/// CCTPBridgeModule, and configures USDC -> BRIDGE and TEST_TOKEN -> FORWARD.
 ///         CCTPBridgeModule is stateless — all routing info lives in PaymentRails's moduleParams.
 ///
 ///      Usage:
@@ -27,6 +27,9 @@ contract DeploySepoliaTestSetup is Script {
     // Sepolia CCTP V2 (Circle official)
     address internal constant TOKEN_MESSENGER_V2 = 0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA;
     address internal constant USDC_SEPOLIA = 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
+
+    // Canonical Sepolia WETH9 (Uniswap's), so the test rail accepts and wraps native ETH
+    address internal constant WETH_SEPOLIA = 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
 
     // Base Sepolia
     uint32 internal constant BASE_SEPOLIA_DOMAIN = 6;
@@ -59,7 +62,7 @@ contract DeploySepoliaTestSetup is Script {
 
         vm.startBroadcast(deployerKey);
 
-        paymentRails = new PaymentRails(deployer, address(0));
+        paymentRails = new PaymentRails(deployer, WETH_SEPOLIA);
         forwardModule = new ForwardModule();
         bridgeModule = new CCTPBridgeModule(TOKEN_MESSENGER_V2, USDC_SEPOLIA);
 

@@ -108,28 +108,26 @@ contract PaymentRails is IPaymentRails, Ownable2Step, ReentrancyGuard {
             revert Errors.PaymentRails_ZeroRecipient();
         }
 
-        // Interaction: Unwrap the whole wrapped balance; the wrapper pays this contract through receive()
-        if (wrappedNative != address(0)) {
-            uint256 wrapped = IERC20(wrappedNative).balanceOf(address(this));
-            if (wrapped > 0) {
-                uint256 nativeBefore = address(this).balance;
-                IWETH9(wrappedNative).withdraw(wrapped);
-
-                // Check: Wrapper paid the exact amount
-                uint256 received = address(this).balance - nativeBefore;
-                if (received != wrapped) {
-                    revert Errors.PaymentRails_UnwrapAmountMismatch(wrapped, received);
-                }
-            }
-        }
-
-        // Check: Something to sweep
-        amount = address(this).balance;
-        if (amount == 0) {
+        // Check: Something to sweep, counting the wrapped balance that is about to be unwrapped
+        uint256 wrapped = wrappedNative == address(0) ? 0 : IERC20(wrappedNative).balanceOf(address(this));
+        if (address(this).balance + wrapped == 0) {
             revert Errors.PaymentRails_ZeroNativeBalance();
         }
 
-        // Interaction: Pay the recipient
+        // Interaction: Unwrap the whole wrapped balance; the wrapper pays this contract through receive()
+        if (wrapped > 0) {
+            uint256 nativeBefore = address(this).balance;
+            IWETH9(wrappedNative).withdraw(wrapped);
+
+            // Check: Wrapper paid the exact amount
+            uint256 received = address(this).balance - nativeBefore;
+            if (received != wrapped) {
+                revert Errors.PaymentRails_UnwrapAmountMismatch(wrapped, received);
+            }
+        }
+
+        // Interaction: Pay the recipient everything
+        amount = address(this).balance;
         (bool sent,) = recipient.call{ value: amount }("");
         if (!sent) {
             revert Errors.PaymentRails_NativeTransferFailed(recipient);
