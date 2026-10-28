@@ -48,6 +48,7 @@ contract PaymentRailsSweepNativeTest is PaymentRailsBase {
     function test_RevertWhen_RecipientRejects() external {
         RejectingRecipient rejecting = new RejectingRecipient();
         _sendNative(executor, VALUE);
+        vm.prank(owner);
         paymentRails.wrapNative();
         _sendNative(executor, 1 ether);
 
@@ -75,6 +76,7 @@ contract PaymentRailsSweepNativeTest is PaymentRailsBase {
 
     function test_GivenOnlyWrappedBalance() external {
         _sendNative(executor, VALUE);
+        vm.prank(owner);
         paymentRails.wrapNative();
 
         vm.recordLogs();
@@ -100,6 +102,7 @@ contract PaymentRailsSweepNativeTest is PaymentRailsBase {
 
     function test_GivenBothNativeAndWrappedBalance() external {
         _sendNative(executor, VALUE);
+        vm.prank(owner);
         paymentRails.wrapNative();
         _sendNative(executor, 1 ether);
 
@@ -119,7 +122,7 @@ contract PaymentRailsSweepNativeTest is PaymentRailsBase {
         vm.prank(owner);
         paymentRails.sweepNative(address(reentrant));
 
-        assertTrue(reentrant.reentrancyBlocked(), "nested wrapNative must hit the reentrancy guard");
+        assertEq(reentrant.rejectedWith(), Ownable.OwnableUnauthorizedAccount.selector, "stranger must be rejected");
         assertEq(address(reentrant).balance, VALUE, "recipient receives the full amount");
         assertEq(address(paymentRails).balance, 0);
         assertEq(weth.balanceOf(address(paymentRails)), 0, "nothing was wrapped during the sweep");
@@ -155,6 +158,7 @@ contract PaymentRailsSweepNativeTest is PaymentRailsBase {
         vm.assume(native + wrapped > 0);
         if (wrapped > 0) {
             _sendNative(executor, wrapped);
+            vm.prank(owner);
             paymentRails.wrapNative();
         }
         if (native > 0) _sendNative(executor, native);

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.29;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IPaymentRails } from "../../../src/interfaces/IPaymentRails.sol";
 
 /// @dev Sends native value via transfer/send (2300-gas stipend) or call (all gas).
@@ -22,18 +21,18 @@ contract StipendSender {
     receive() external payable { }
 }
 
-/// @dev WETH9 look-alike whose deposit() re-enters wrapNative() on the caller; records whether the guard itself
-///      rejected the call (any other revert would not count).
+/// @dev WETH9 look-alike whose deposit() re-enters wrapNative() on the caller; records the selector the nested
+///      call was rejected with (zero if it went through).
 contract ReentrantWETH9 is ERC20 {
-    bool public reentrancyBlocked;
+    bytes4 public rejectedWith;
 
     constructor() ERC20("Reentrant Wrapped", "RWRAP") { }
 
     function deposit() external payable {
         try IPaymentRails(msg.sender).wrapNative() {
-            reentrancyBlocked = false;
+            rejectedWith = bytes4(0);
         } catch (bytes memory reason) {
-            reentrancyBlocked = bytes4(reason) == ReentrancyGuard.ReentrancyGuardReentrantCall.selector;
+            rejectedWith = bytes4(reason);
         }
         _mint(msg.sender, msg.value);
     }
@@ -63,16 +62,16 @@ contract RejectingRecipient {
     }
 }
 
-/// @dev Recipient whose receive() re-enters the permissionless wrapNative() on the caller during a sweep; records
-///      whether the guard itself rejected the call.
+/// @dev Recipient whose receive() re-enters wrapNative() on the caller during a sweep; records the selector the
+///      nested call was rejected with (zero if it went through).
 contract ReentrantSweepRecipient {
-    bool public reentrancyBlocked;
+    bytes4 public rejectedWith;
 
     receive() external payable {
         try IPaymentRails(msg.sender).wrapNative() {
-            reentrancyBlocked = false;
+            rejectedWith = bytes4(0);
         } catch (bytes memory reason) {
-            reentrancyBlocked = bytes4(reason) == ReentrancyGuard.ReentrancyGuardReentrantCall.selector;
+            rejectedWith = bytes4(reason);
         }
     }
 }

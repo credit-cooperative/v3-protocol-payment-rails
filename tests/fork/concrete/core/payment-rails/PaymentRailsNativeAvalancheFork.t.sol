@@ -111,9 +111,9 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
         uint256 wavaxContractNativeBefore = WAVAX.balance;
 
         vm.expectEmit(true, false, false, true, address(paymentRails));
-        emit NativeWrapped(keeper, AVAX_IN);
+        emit NativeWrapped(owner, AVAX_IN);
 
-        vm.prank(keeper);
+        vm.prank(owner);
         uint256 wrapped = paymentRails.wrapNative();
 
         assertEq(wrapped, AVAX_IN);
@@ -122,9 +122,20 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
         assertEq(WAVAX.balance - wavaxContractNativeBefore, AVAX_IN, "WAVAX contract did not receive the AVAX");
     }
 
+    function test_RevertWhen_ANonOwnerCallsWrapNative() external {
+        _sendAvax(AVAX_IN);
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, keeper));
+        vm.prank(keeper);
+        paymentRails.wrapNative();
+
+        assertEq(address(paymentRails).balance, AVAX_IN, "the keeper's wrap attempt must move nothing");
+        assertEq(IERC20(WAVAX).balanceOf(address(paymentRails)), 0);
+    }
+
     function test_WhenTheWrappedBalanceIsExecuted() external {
         _sendAvax(AVAX_IN);
-        vm.prank(keeper);
+        vm.prank(owner);
         paymentRails.wrapNative();
 
         bytes memory params = _wavaxToUsdcParams();
@@ -148,6 +159,7 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
 
     function test_RevertWhen_WrapNativeIsCalledWithNothingToWrap() external {
         vm.expectRevert(Errors.PaymentRails_ZeroNativeBalance.selector);
+        vm.prank(owner);
         paymentRails.wrapNative();
     }
 
@@ -168,7 +180,7 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
 
     function test_WhenTheOwnerSweepsWithRealWavaxOnTheRails() external {
         _sendAvax(AVAX_IN);
-        vm.prank(keeper);
+        vm.prank(owner);
         paymentRails.wrapNative();
         _sendAvax(AVAX_IN);
         address exitRecipient = makeAddr("exitRecipient");
@@ -239,7 +251,7 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
         vm.prank(sender);
         (bool ok,) = address(instance).call{ value: AVAX_IN }("");
         assertTrue(ok);
-        vm.prank(keeper);
+        vm.prank(owner);
         assertEq(instance.wrapNative(), AVAX_IN);
         assertEq(IERC20(WAVAX).balanceOf(address(instance)), AVAX_IN);
     }

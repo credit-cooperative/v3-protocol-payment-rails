@@ -9,7 +9,7 @@ import { DataTypes } from "../../../../src/types/DataTypes.sol";
 import { MockWETH9 } from "../../../shared/mocks/MockWETH9.sol";
 import { PaymentRailsNativeHandler } from "./PaymentRailsNativeHandler.sol";
 
-/// @dev Native value leaves the rails only by becoming its own wrapped balance, which flows out through the
+/// @dev Native value leaves the rails only by an owner wrap into its own wrapped balance, which flows out through the
 ///      configured route, or by an owner sweep that unwraps everything first. Every quantity is compared
 ///      against the handler's ghost totals.
 contract PaymentRailsNativeInvariant is Test {

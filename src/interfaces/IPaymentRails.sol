@@ -16,10 +16,10 @@ import { DataTypes } from "../types/DataTypes.sol";
 /// and reentrancy protection.
 ///
 /// Non-zero native value is accepted by `receive` and converted by {wrapNative} into {wrappedNative}, after
-/// which it is routed like any other token. A zero {wrappedNative} disables native ingress. Wrapping is
-/// permissionless; the only native egress is the owner-only {sweepNative}, which unwraps the whole wrapped
-/// balance (however it arrived) and pays out everything in one call, so a stranger wrapping ahead of it changes
-/// nothing. A configured route for {wrappedNative} can still be executed by anyone before the sweep lands.
+/// which it is routed like any other token. A zero {wrappedNative} disables native ingress. Both {wrapNative}
+/// and the native exit {sweepNative} are owner-only, so native value moves only where the owner sends it: into
+/// the wrapped route, or out in one call that first unwraps the whole wrapped balance (however it arrived). A
+/// configured route for {wrappedNative} can still be executed by anyone before a sweep lands.
 interface IPaymentRails {
     /*//////////////////////////////////////////////////////////////////////////
                                     EVENTS
@@ -72,7 +72,7 @@ interface IPaymentRails {
     event NativeReceived(address indexed sender, uint256 amount);
 
     /// @notice Emitted when the native balance is wrapped into the wrapped-native token.
-    /// @param caller The address that triggered the wrap.
+    /// @param caller The owner address that triggered the wrap.
     /// @param amount The native value wrapped, in wei.
     event NativeWrapped(address indexed caller, uint256 amount);
 
@@ -147,9 +147,11 @@ interface IPaymentRails {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Wraps the entire native balance into the wrapped-native token.
-    /// @dev Permissionless. Emits a {NativeWrapped} event. Also sweeps value that arrived without `receive`.
+    /// @dev Owner-only, so native value enters the routable wrapped balance only when the owner says so. Emits a
+    /// {NativeWrapped} event. Also wraps value that arrived without `receive`.
     ///
     /// Requirements:
+    /// - The caller must be the contract owner.
     /// - {wrappedNative} must not be `address(0)`.
     /// - The native balance must be greater than zero.
     /// - The wrapper must credit exactly the deposited amount.
@@ -164,6 +166,11 @@ interface IPaymentRails {
     /// @notice Unwraps the whole wrapped balance and sends the entire native balance to `recipient`.
     /// @dev Owner-only. Emits a {NativeSwept} event; the wrapper's payout is internal and emits nothing. Works on
     /// rails without a wrapper too, so force-fed value is always recoverable. Reverts if the recipient refuses.
+    ///
+    /// Notes:
+    /// - Takes the whole {wrappedNative} balance, including swap proceeds that landed in the wrapped token
+    /// - An enabled {wrappedNative} route stays executable by anyone until the sweep lands; disable it in the same
+    ///   batch when that balance must be part of the sweep
     ///
     /// Requirements:
     /// - The caller must be the contract owner.
@@ -199,7 +206,7 @@ interface IPaymentRails {
     /// @dev Validates all requirements and calls {IActionModule.validate} and {IActionModule.estimateOutput}.
     /// Reverts with specific errors if execution would fail. For {wrappedNative}, reverts with
     /// `PaymentRails_NativePendingWrap` when the wrapped balance is short but native value is waiting for
-    /// {wrapNative}, so a keeper learns to wrap first.
+    /// {wrapNative}, so the caller learns that the owner must wrap first.
     ///
     /// @param token Token address to preview.
     /// @return estimatedOutput Estimated output amount.

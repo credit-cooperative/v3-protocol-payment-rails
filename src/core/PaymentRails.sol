@@ -70,7 +70,7 @@ contract PaymentRails is IPaymentRails, Ownable2Step, ReentrancyGuard {
 
     /// @inheritdoc IPaymentRails
     /// @dev Emits a {NativeWrapped} event.
-    function wrapNative() external nonReentrant returns (uint256 amount) {
+    function wrapNative() external onlyOwner nonReentrant returns (uint256 amount) {
         // Check: Native ingress enabled
         if (wrappedNative == address(0)) {
             revert Errors.PaymentRails_NativeNotSupported();

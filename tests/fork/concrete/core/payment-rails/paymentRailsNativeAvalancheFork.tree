@@ -8,6 +8,8 @@ PaymentRails_NativeAvalancheFork
 │   ├── it should mint real WAVAX to the rails one to one
 │   ├── it should leave zero native balance on the rails
 │   └── it should move the AVAX into the WAVAX contract
+├── when a non-owner calls wrapNative
+│   └── it should revert
 ├── when the wrapped balance is executed
 │   ├── it should swap WAVAX to USDC through the real SwapRouter02
 │   ├── it should land within the Chainlink oracle band

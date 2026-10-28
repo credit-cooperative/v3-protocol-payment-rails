@@ -22,7 +22,7 @@ PaymentRails_SweepNative
 │   ├── it should send the sum
 │   └── it should drain paymentRails of both
 ├── when recipient re-enters wrapNative
-│   ├── it should block the re-entrant call
+│   ├── it should reject the re-entrant call as unauthorized
 │   └── it should complete the sweep
 ├── given native ingress is disabled
 │   └── it should sweep force-fed value

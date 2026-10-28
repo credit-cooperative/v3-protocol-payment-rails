@@ -10,7 +10,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { MockWETH9 } from "../../../shared/mocks/MockWETH9.sol";
 import { StipendSender, RejectingRecipient } from "../../../shared/mocks/NativeMocks.sol";
 
-/// @dev Drives native value in (call, stipend, force-fed), wraps it (anyone), routes it out via ForwardModule,
+/// @dev Drives native value in (call, stipend, force-fed), has the owner wrap it, routes it out via ForwardModule,
 ///      and lets the owner sweep everything out, including attempted sweeps to a refusing recipient.
 contract PaymentRailsNativeHandler is Test {
     PaymentRails internal rails;
@@ -94,13 +94,20 @@ contract PaymentRailsNativeHandler is Test {
         uint256 nativeBefore = address(rails).balance;
         address actor = actors[actorSeed % actors.length];
 
+        // Only the owner may wrap; anyone else is rejected before any value moves.
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, actor));
+        vm.prank(actor);
+        rails.wrapNative();
+        assertEq(address(rails).balance, nativeBefore, "handler: a stranger's wrap attempt must move nothing");
+
         if (nativeBefore == 0) {
             vm.expectRevert(Errors.PaymentRails_ZeroNativeBalance.selector);
+            vm.prank(owner);
             rails.wrapNative();
             return;
         }
 
-        vm.prank(actor);
+        vm.prank(owner);
         uint256 wrapped = rails.wrapNative();
         assertEq(wrapped, nativeBefore, "handler: wrap must report the full swept balance");
 

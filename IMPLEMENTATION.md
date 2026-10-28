@@ -162,13 +162,14 @@ avaxRails.configureToken(
 );
 
 // Native AVAX paid straight to avaxRails (e.g. by a settlement contract) is accepted by
-// receive() and converted on demand, by anyone, into the WAVAX route configured above:
-avaxRails.wrapNative();              // wraps the entire native balance 1:1
-avaxRails.executeAction(WAVAX, avaxRails.getTokenBalance(WAVAX));
+// receive() and waits until the owner wraps it into the WAVAX route configured above;
+// the keeper then routes the wrapped balance like any other token:
+avaxRails.wrapNative();              // owner: wraps the entire native balance 1:1
+avaxRails.executeAction(WAVAX, avaxRails.getTokenBalance(WAVAX));   // anyone
 
-// Owner-only exit: unwraps every WAVAX and pays the whole native balance out in one call,
-// so nothing done between blocks can get ahead of it. Also the recovery path for force-fed
-// value. Wrapping stays permissionless for the keeper.
+// Owner-only exit: unwraps every WAVAX and pays the whole native balance out in one call.
+// Also the recovery path for force-fed value. Takes swap proceeds that landed in WAVAX too;
+// if the WAVAX route is enabled, disable it in the same Safe batch so nothing routes ahead of it.
 avaxRails.sweepNative(treasury);   // owner: all WAVAX unwrapped + all AVAX -> treasury
 
 // On Base: forward USDC to spigot

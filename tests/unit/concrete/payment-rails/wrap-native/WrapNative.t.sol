@@ -5,19 +5,34 @@ import { PaymentRailsBase } from "../PaymentRailsBase.t.sol";
 import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
 import { Errors } from "../../../../../src/libraries/Errors.sol";
 import { ReentrantWETH9, ShortMintWETH9 } from "../../../../shared/mocks/NativeMocks.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract PaymentRailsWrapNativeTest is PaymentRailsBase {
     uint256 internal constant VALUE = 3 ether;
+
+    function test_RevertWhen_CallerIsNotTheOwner() external {
+        _sendNative(executor, VALUE);
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, nonOwner));
+        vm.prank(nonOwner);
+        paymentRails.wrapNative();
+
+        assertEq(address(paymentRails).balance, VALUE, "a stranger's wrap attempt must move nothing");
+        assertEq(weth.balanceOf(address(paymentRails)), 0);
+    }
 
     function test_RevertGiven_NativeIngressIsDisabled() external {
         PaymentRails disabled = new PaymentRails(owner, address(0));
 
         vm.expectRevert(Errors.PaymentRails_NativeNotSupported.selector);
+        vm.prank(owner);
         disabled.wrapNative();
     }
 
     function test_RevertGiven_NativeBalanceIsZero() external {
         vm.expectRevert(Errors.PaymentRails_ZeroNativeBalance.selector);
+        vm.prank(owner);
         paymentRails.wrapNative();
     }
 
@@ -27,6 +42,7 @@ contract PaymentRailsWrapNativeTest is PaymentRailsBase {
         vm.deal(address(rails), VALUE);
 
         vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRails_WrapAmountMismatch.selector, VALUE, VALUE / 2));
+        vm.prank(owner);
         rails.wrapNative();
 
         assertEq(address(rails).balance, VALUE, "a mis-set wrapper must not be able to burn the deposit");
@@ -38,9 +54,9 @@ contract PaymentRailsWrapNativeTest is PaymentRailsBase {
         uint256 wrapperNativeBefore = address(weth).balance;
 
         vm.expectEmit(true, false, false, true, address(paymentRails));
-        emit NativeWrapped(executor, VALUE);
+        emit NativeWrapped(owner, VALUE);
 
-        vm.prank(executor);
+        vm.prank(owner);
         uint256 amount = paymentRails.wrapNative();
 
         assertEq(amount, VALUE);
@@ -49,21 +65,12 @@ contract PaymentRailsWrapNativeTest is PaymentRailsBase {
         assertEq(address(weth).balance - wrapperNativeBefore, VALUE);
     }
 
-    function test_WhenCalledByANonOwner() external {
-        _sendNative(executor, VALUE);
-
-        vm.prank(nonOwner);
-        uint256 amount = paymentRails.wrapNative();
-
-        assertEq(amount, VALUE);
-        assertEq(weth.balanceOf(address(paymentRails)), VALUE);
-    }
-
     function test_GivenValueArrivedWithoutCallingReceive() external {
         // vm.deal models value that arrives without running receive()
         vm.deal(address(paymentRails), VALUE);
         _sendNative(executor, 1 ether);
 
+        vm.prank(owner);
         uint256 amount = paymentRails.wrapNative();
 
         assertEq(amount, VALUE + 1 ether);
@@ -71,14 +78,30 @@ contract PaymentRailsWrapNativeTest is PaymentRailsBase {
         assertEq(weth.balanceOf(address(paymentRails)), VALUE + 1 ether);
     }
 
-    function test_WhenTheWrapperReEntersWrapNative() external {
+    function test_WhenTheWrapperReEntersWrapNativeAsTheOwner() external {
+        // The wrapper is also the owner, so the nested call passes the owner check and meets the guard.
+        ReentrantWETH9 reentrant = new ReentrantWETH9();
+        PaymentRails rails = new PaymentRails(address(reentrant), address(reentrant));
+        vm.deal(address(rails), VALUE);
+
+        vm.prank(address(reentrant));
+        uint256 amount = rails.wrapNative();
+
+        assertEq(reentrant.rejectedWith(), ReentrancyGuard.ReentrancyGuardReentrantCall.selector, "guard must reject");
+        assertEq(amount, VALUE);
+        assertEq(address(rails).balance, 0);
+        assertEq(reentrant.balanceOf(address(rails)), VALUE);
+    }
+
+    function test_WhenTheWrapperReEntersWrapNativeAsAStranger() external {
         ReentrantWETH9 reentrant = new ReentrantWETH9();
         PaymentRails rails = new PaymentRails(owner, address(reentrant));
         vm.deal(address(rails), VALUE);
 
+        vm.prank(owner);
         uint256 amount = rails.wrapNative();
 
-        assertTrue(reentrant.reentrancyBlocked(), "nested wrapNative must hit the reentrancy guard");
+        assertEq(reentrant.rejectedWith(), Ownable.OwnableUnauthorizedAccount.selector, "owner check must reject");
         assertEq(amount, VALUE);
         assertEq(address(rails).balance, 0);
         assertEq(reentrant.balanceOf(address(rails)), VALUE);
@@ -88,6 +111,7 @@ contract PaymentRailsWrapNativeTest is PaymentRailsBase {
         vm.prank(owner);
         paymentRails.configureToken(address(weth), ACTION_TYPE, address(actionModule), 0, _defaultModuleParams(), true);
         _sendNative(executor, VALUE);
+        vm.prank(owner);
         paymentRails.wrapNative();
 
         vm.prank(executor);
@@ -103,6 +127,7 @@ contract PaymentRailsWrapNativeTest is PaymentRailsBase {
         value = bound(value, 1, 1_000_000 ether);
         _sendNative(executor, value);
 
+        vm.prank(owner);
         uint256 amount = paymentRails.wrapNative();
 
         assertEq(amount, value);

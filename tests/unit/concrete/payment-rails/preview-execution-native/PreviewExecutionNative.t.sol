@@ -25,6 +25,7 @@ contract PaymentRailsPreviewExecutionNativeTest is PaymentRailsBase {
 
     function test_RevertGiven_NativeIsPendingAndTheWrappedBalanceIsBelowMinBalance() external givenWrappedConfigured {
         _sendNative(executor, WETH_MIN / 2);
+        vm.prank(owner);
         paymentRails.wrapNative();
         _sendNative(executor, PENDING);
 
@@ -34,6 +35,7 @@ contract PaymentRailsPreviewExecutionNativeTest is PaymentRailsBase {
 
     function test_GivenNativeIsPendingAndTheWrappedBalanceMeetsMinBalance() external givenWrappedConfigured {
         _sendNative(executor, WETH_MIN);
+        vm.prank(owner);
         paymentRails.wrapNative();
         _sendNative(executor, PENDING);
 
@@ -51,6 +53,7 @@ contract PaymentRailsPreviewExecutionNativeTest is PaymentRailsBase {
         paymentRails.previewExecution(address(weth));
 
         // Some wrapped + a little native, still < WETH_MIN.
+        vm.prank(owner);
         paymentRails.wrapNative();
         _sendNative(executor, WETH_MIN / 4);
 
@@ -75,6 +78,7 @@ contract PaymentRailsPreviewExecutionNativeTest is PaymentRailsBase {
 
     function test_GivenTheNativeHasBeenWrapped() external givenWrappedConfigured {
         _sendNative(executor, PENDING);
+        vm.prank(owner);
         paymentRails.wrapNative();
 
         (uint256 estimated,) = paymentRails.previewExecution(address(weth));
