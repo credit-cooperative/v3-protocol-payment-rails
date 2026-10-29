@@ -70,7 +70,7 @@ abstract contract ForwardModuleForkBase is Test {
         module = new ForwardModule();
 
         vm.prank(owner);
-        paymentRails = new PaymentRails(owner, address(0));
+        paymentRails = new PaymentRails(owner);
 
         deal(USDC, address(paymentRails), USDC_AMOUNT * 10);
         deal(WETH, address(paymentRails), WETH_AMOUNT * 10);
@@ -426,7 +426,7 @@ contract ForwardModuleForkPaymentRailsIntegrationTest is ForwardModuleForkBase {
     }
 
     function test_PaymentRailsIntegration_TwoPaymentRailsShareOneModule() external {
-        PaymentRails paymentRails2 = new PaymentRails(owner, address(0));
+        PaymentRails paymentRails2 = new PaymentRails(owner);
         deal(USDC, address(paymentRails2), USDC_AMOUNT * 10);
 
         bytes memory params = _buildParams(recipient, 0);

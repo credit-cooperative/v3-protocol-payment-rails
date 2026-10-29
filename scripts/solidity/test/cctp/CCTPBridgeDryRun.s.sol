@@ -77,7 +77,7 @@ contract CCTPBridgeDryRun is Script, StdCheats {
         vm.startPrank(deployer);
 
         // --- Deploy ---
-        PaymentRails paymentRails = new PaymentRails(deployer, address(0));
+        PaymentRails paymentRails = new PaymentRails(deployer);
         CCTPBridgeModule module = new CCTPBridgeModule(cfg.tokenMessenger, cfg.usdc);
         console2.log("[DEPLOYED] PaymentRails:     ", address(paymentRails));
         console2.log("[DEPLOYED] CCTPBridgeModule: ", address(module));

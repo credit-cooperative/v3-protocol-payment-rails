@@ -12,17 +12,17 @@ import { Errors } from "../../../../../src/libraries/Errors.sol";
 contract PaymentRailsFactory_Ownership_Test is PaymentRailsFactoryBase {
     function test_RevertWhen_InitialOwnerIsZeroAddress() external {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
-        new PaymentRailsFactory(address(0), address(0));
+        new PaymentRailsFactory(address(0));
     }
 
     function test_WhenInitialOwnerIsValid_SetsOwner() external {
-        PaymentRailsFactory f = new PaymentRailsFactory(owner, address(0));
+        PaymentRailsFactory f = new PaymentRailsFactory(owner);
         assertEq(f.owner(), owner, "owner");
     }
 
     /// @dev The owner is an argument, not msg.sender, so a deployer key never holds the role.
     function test_WhenDeployed_DeployerIsNotOwner() external {
-        PaymentRailsFactory f = new PaymentRailsFactory(owner, address(0));
+        PaymentRailsFactory f = new PaymentRailsFactory(owner);
         assertNotEq(f.owner(), address(this), "deployer must not be owner");
     }
 

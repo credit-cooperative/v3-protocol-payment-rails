@@ -3,7 +3,6 @@ pragma solidity ^0.8.29;
 
 import { Test } from "forge-std/src/Test.sol";
 import { PaymentRailsFactory } from "../../../../src/core/PaymentRailsFactory.sol";
-import { MockWETH9 } from "../../../shared/mocks/MockWETH9.sol";
 
 /// @dev Base test contract for PaymentRailsFactory unit tests.
 abstract contract PaymentRailsFactoryBase is Test {
@@ -24,7 +23,6 @@ abstract contract PaymentRailsFactoryBase is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     PaymentRailsFactory internal factory;
-    MockWETH9 internal weth;
 
     address internal owner;
     address internal deployer;
@@ -41,7 +39,6 @@ abstract contract PaymentRailsFactoryBase is Test {
 
         // The test contract is the factory owner, so create() calls in the suites below need no
         // prank; access control is exercised explicitly from `stranger`.
-        weth = new MockWETH9();
-        factory = new PaymentRailsFactory(address(this), address(weth));
+        factory = new PaymentRailsFactory(address(this));
     }
 }

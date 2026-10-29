@@ -40,7 +40,7 @@ library Errors {
     /// @param minBalance Required minimum balance
     error PaymentRails_BelowMinimumBalance(uint256 amount, uint256 minBalance);
 
-    /// @notice Thrown when attempting to execute with zero amount, or when zero native value is sent
+    /// @notice Thrown when attempting to execute with zero amount
     error PaymentRails_ZeroAmount();
 
     /// @notice Thrown when paymentRails's token balance is insufficient for the requested amount
@@ -48,20 +48,8 @@ library Errors {
     /// @param amount Requested execution amount
     error PaymentRails_InsufficientBalance(uint256 balance, uint256 amount);
 
-    /// @notice Thrown when the wrapped-native address passed to the constructor has no code.
-    /// @param wrappedNative The address that was rejected.
-    error PaymentRails_WrappedNativeNotContract(address wrappedNative);
-
-    /// @notice Thrown when native value is sent or wrapped while native ingress is disabled.
-    error PaymentRails_NativeNotSupported();
-
-    /// @notice Thrown when wrapNative() is called with no native balance to wrap.
+    /// @notice Thrown when sweepNative() is called with no native balance to sweep.
     error PaymentRails_ZeroNativeBalance();
-
-    /// @notice Thrown when the wrapper credited a different amount than the native value deposited.
-    /// @param expected The native value deposited, in wei.
-    /// @param actual The observed increase in the wrapped-native balance.
-    error PaymentRails_WrapAmountMismatch(uint256 expected, uint256 actual);
 
     /// @notice Thrown when sweeping native value to the zero address.
     error PaymentRails_ZeroRecipient();
@@ -69,16 +57,6 @@ library Errors {
     /// @notice Thrown when the sweep recipient refused the native value.
     /// @param recipient The address that refused the value.
     error PaymentRails_NativeTransferFailed(address recipient);
-
-    /// @notice Thrown by previewExecution when the wrapped token cannot be routed yet because native value is
-    /// waiting to be wrapped.
-    /// @param pendingNative The native balance waiting for wrapNative(), in wei.
-    error PaymentRails_NativePendingWrap(uint256 pendingNative);
-
-    /// @notice Thrown when the wrapper paid out a different amount than the wrapped value withdrawn.
-    /// @param expected The wrapped amount withdrawn, in wei.
-    /// @param actual The observed increase in the native balance.
-    error PaymentRails_UnwrapAmountMismatch(uint256 expected, uint256 actual);
 
     /*//////////////////////////////////////////////////////////////////////////
                             DEX SWAP MODULE ERRORS
@@ -145,10 +123,6 @@ library Errors {
 
     /// @notice Thrown when renouncing ownership of the factory is attempted.
     error PaymentRailsFactory_OwnershipCannotBeRenounced();
-
-    /// @notice Thrown when the wrapped-native address passed to the factory constructor has no code.
-    /// @param wrappedNative The address that was rejected.
-    error PaymentRailsFactory_WrappedNativeNotContract(address wrappedNative);
 
     /*//////////////////////////////////////////////////////////////////////////
                         COWSWAP MODULE FACTORY ERRORS

@@ -83,7 +83,7 @@ abstract contract DexSwapModuleForkBase is Test {
 
         vm.startPrank(owner);
         module = new DexSwapModule(UNISWAP_V3_ROUTER, address(0), 0);
-        paymentRails = new PaymentRails(owner, address(0));
+        paymentRails = new PaymentRails(owner);
         vm.stopPrank();
 
         deal(WETH, address(paymentRails), WETH_SELL_AMOUNT * 10);
@@ -686,7 +686,7 @@ contract DexSwapModuleForkSharedModuleTest is DexSwapModuleForkBase {
     function test_SharedModule_TwoPaymentRailsShareOneModule() external {
         address owner2 = makeAddr("owner2");
         vm.prank(owner2);
-        PaymentRails paymentRails2 = new PaymentRails(owner2, address(0));
+        PaymentRails paymentRails2 = new PaymentRails(owner2);
         deal(WETH, address(paymentRails2), WETH_SELL_AMOUNT * 10);
 
         bytes memory swapParams = _buildDefaultWethToUsdcParams();
@@ -711,7 +711,7 @@ contract DexSwapModuleForkSharedModuleTest is DexSwapModuleForkBase {
     function test_SharedModule_AlternatingSwapsFromDifferentPaymentRails() external {
         address owner2 = makeAddr("owner2");
         vm.prank(owner2);
-        PaymentRails paymentRails2 = new PaymentRails(owner2, address(0));
+        PaymentRails paymentRails2 = new PaymentRails(owner2);
         deal(WETH, address(paymentRails2), WETH_SELL_AMOUNT * 10);
 
         bytes memory swapParams = _buildDefaultWethToUsdcParams();

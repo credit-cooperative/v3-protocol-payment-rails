@@ -109,7 +109,7 @@ Cross-chain USDC bridge via Circle's CCTP V2.
 ### Configuring PaymentRails to Forward USDC
 
 ```solidity
-PaymentRails paymentRails = new PaymentRails(owner, WETH); // wrappedNative; address(0) disables native ingress
+PaymentRails paymentRails = new PaymentRails(owner);
 ForwardModule forwardModule = new ForwardModule();
 
 DataTypes.ForwardParams memory params = DataTypes.ForwardParams({
@@ -137,7 +137,7 @@ paymentRails.executeAction(USDC_ADDRESS, balance);
 
 ```solidity
 // On Avalanche: swap WAVAX → USDC, then bridge USDC to Base
-PaymentRails avaxRails = new PaymentRails(owner, WAVAX); // native AVAX sent here is wrapped by wrapNative()
+PaymentRails avaxRails = new PaymentRails(owner);
 DexSwapModule dexSwap = new DexSwapModule(owner);
 CCTPBridgeModule cctpBridge = new CCTPBridgeModule(usdcAddress, tokenMessengerV2, owner);
 
@@ -162,18 +162,11 @@ avaxRails.configureToken(
 );
 
 // Native AVAX paid straight to avaxRails (e.g. by a settlement contract) is accepted by
-// receive() and waits until the owner wraps it into the WAVAX route configured above;
-// the keeper then routes the wrapped balance like any other token:
-avaxRails.wrapNative();              // owner: wraps the entire native balance 1:1
-avaxRails.executeAction(WAVAX, avaxRails.getTokenBalance(WAVAX));   // anyone
-
-// Owner-only exit: unwraps every WAVAX and pays the whole native balance out in one call.
-// Also the recovery path for force-fed value. Takes swap proceeds that landed in WAVAX too;
-// if the WAVAX route is enabled, disable it in the same Safe batch so nothing routes ahead of it.
-avaxRails.sweepNative(treasury);   // owner: all WAVAX unwrapped + all AVAX -> treasury
+// receive() and held as-is; it is not routed through any module. Only the owner can move it:
+avaxRails.sweepNative(treasury);   // owner: the whole AVAX balance -> treasury
 
 // On Base: forward USDC to spigot
-PaymentRails baseRails = new PaymentRails(owner, WETH);
+PaymentRails baseRails = new PaymentRails(owner);
 ForwardModule forwardModule = new ForwardModule();
 
 baseRails.configureToken(

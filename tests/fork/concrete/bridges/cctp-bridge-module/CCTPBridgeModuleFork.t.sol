@@ -79,7 +79,7 @@ abstract contract CCTPBridgeModuleForkBase is Test {
         module = new CCTPBridgeModule(TOKEN_MESSENGER_V2, USDC);
 
         vm.prank(owner);
-        paymentRails = new PaymentRails(owner, address(0));
+        paymentRails = new PaymentRails(owner);
 
         deal(USDC, address(paymentRails), BRIDGE_AMOUNT * 10);
     }
@@ -666,7 +666,7 @@ contract CCTPBridgeModuleForkPaymentRailsIntegrationTest is CCTPBridgeModuleFork
     }
 
     function test_PaymentRailsIntegration_TwoPaymentRailsShareOneModule() external {
-        PaymentRails paymentRails2 = new PaymentRails(owner, address(0));
+        PaymentRails paymentRails2 = new PaymentRails(owner);
         deal(USDC, address(paymentRails2), BRIDGE_AMOUNT * 10);
 
         bytes memory params = _buildParams(DOMAIN_BASE);

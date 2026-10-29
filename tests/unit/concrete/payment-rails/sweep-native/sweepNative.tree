@@ -1,33 +1,28 @@
 PaymentRails_SweepNative
 ├── when caller is not the owner
-│   └── it should revert with OwnableUnauthorizedAccount
+│   ├── it should revert with OwnableUnauthorizedAccount
+│   └── it should leave the native balance untouched
 ├── when recipient is zero address
 │   └── it should revert with PaymentRails_ZeroRecipient
-├── given no native and no wrapped balance
+├── given no native balance
 │   └── it should revert with PaymentRails_ZeroNativeBalance
-├── given the wrapper pays out less than the wrapped balance
-│   └── it should revert with PaymentRails_UnwrapAmountMismatch
 ├── when recipient rejects
 │   ├── it should revert with PaymentRails_NativeTransferFailed
-│   └── it should leave both balances unchanged
-├── given only native balance
+│   └── it should leave the native balance unchanged
+├── given a native balance
 │   ├── it should send the whole native balance
 │   ├── it should return the amount sent
 │   └── it should emit NativeSwept with recipient and amount
-├── given only wrapped balance
-│   ├── it should unwrap the whole wrapped balance
-│   ├── it should not emit NativeReceived for the wrapper payout
-│   └── it should send the unwrapped value
-├── given both native and wrapped balance
-│   ├── it should send the sum
-│   └── it should drain paymentRails of both
-├── when recipient re-enters wrapNative
+├── when a non-owner recipient re-enters sweepNative
 │   ├── it should reject the re-entrant call as unauthorized
 │   └── it should complete the sweep
-├── given native ingress is disabled
-│   └── it should sweep force-fed value
+├── when the owner re-enters sweepNative as recipient
+│   ├── it should block the re-entrant call with the reentrancy guard
+│   └── it should complete the sweep
 ├── given value arrived without calling receive
 │   └── it should include it
+├── given token balances are held
+│   └── it should leave token balances untouched
 └── fuzz
-    └── when native and wrapped balances are arbitrary
-        └── it should deliver exactly their sum
+    └── when the native balance is any non-zero amount
+        └── it should deliver exactly that amount

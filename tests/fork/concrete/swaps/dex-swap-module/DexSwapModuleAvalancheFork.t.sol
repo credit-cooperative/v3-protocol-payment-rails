@@ -72,7 +72,7 @@ abstract contract DexSwapModuleAvalancheForkBase is Test {
 
         vm.startPrank(owner);
         module = new DexSwapModule(SWAP_ROUTER_02, address(0), 0);
-        paymentRails = new PaymentRails(owner, WAVAX);
+        paymentRails = new PaymentRails(owner);
         vm.stopPrank();
 
         deal(WAVAX, address(paymentRails), WAVAX_SELL_AMOUNT * 100);

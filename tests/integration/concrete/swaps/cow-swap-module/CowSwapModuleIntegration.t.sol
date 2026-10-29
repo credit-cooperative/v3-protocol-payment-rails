@@ -101,7 +101,7 @@ contract CowSwapModuleIntegrationTest is Test {
         mockPaymentRails = new MockPaymentRails();
 
         vm.prank(owner);
-        realPaymentRails = new PaymentRails(owner, address(0));
+        realPaymentRails = new PaymentRails(owner);
 
         module = new CowSwapModule(address(cowSettlement), address(this), address(mockPaymentRails), address(0), 0);
         mockPaymentRails.setModule(address(module));

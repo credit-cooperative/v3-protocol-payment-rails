@@ -81,7 +81,7 @@ contract CowSwapModuleFactoryFork_Test is Test {
         realDomainSeparator = IGPv2Settlement(GPV2_SETTLEMENT).domainSeparator();
 
         vm.startPrank(owner);
-        paymentRails = new PaymentRails(owner, address(0));
+        paymentRails = new PaymentRails(owner);
         factory = new CowSwapModuleFactory(owner, GPV2_SETTLEMENT, address(0), 0);
         vm.stopPrank();
 
@@ -157,7 +157,7 @@ contract CowSwapModuleFactoryFork_Test is Test {
     /// @dev Production flow: mint a module for a PaymentRails the factory owner does not own.
     function test_Fork_FactoryOwner_CreatesModuleForCustomerOwnedRails() external {
         address customer = makeAddr("customer");
-        PaymentRails customerRails = new PaymentRails(customer, address(0));
+        PaymentRails customerRails = new PaymentRails(customer);
         assertTrue(customerRails.owner() != owner);
 
         vm.prank(owner);

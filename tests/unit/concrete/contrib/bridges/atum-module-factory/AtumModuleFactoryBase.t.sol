@@ -57,12 +57,12 @@ abstract contract AtumModuleFactoryBase is Test {
 
         // A REAL PaymentRails: creation requires the rails to be on PaymentRailsFactory's list,
         // so it can no longer be a bare `makeAddr`.
-        paymentRails = address(new PaymentRails(address(this), address(0)));
+        paymentRails = address(new PaymentRails(address(this)));
 
-        otherPaymentRails = address(new PaymentRails(address(this), address(0)));
+        otherPaymentRails = address(new PaymentRails(address(this)));
 
         foreignRailsOwner = makeAddr("foreignRailsOwner");
-        foreignPaymentRails = address(new PaymentRails(foreignRailsOwner, address(0)));
+        foreignPaymentRails = address(new PaymentRails(foreignRailsOwner));
 
         // Creation now requires the rails to be on PaymentRailsFactory's deployment list. The
         // mock stands in for that list; the production factory is what makes membership unforgeable.

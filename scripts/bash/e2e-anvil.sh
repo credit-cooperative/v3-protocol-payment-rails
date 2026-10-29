@@ -229,7 +229,7 @@ assert_ge "funder DAI from Uniswap" "$FUNDER_DAI" "9900000000000000000000"
 phase "PHASE 2 — deployment (production deploy scripts)"
 
 step "factories for the per-instance contracts"
-RAILS_FACTORY=$(deploy_script scripts/solidity/deploy/DeployPaymentRailsFactory.s.sol --sig "run(address,address)" "$RAILS_OWNER" "$WETH")
+RAILS_FACTORY=$(deploy_script scripts/solidity/deploy/DeployPaymentRailsFactory.s.sol --sig "run(address)" "$RAILS_OWNER")
 COW_FACTORY=$(deploy_script scripts/solidity/deploy/DeployCowSwapModuleFactory.s.sol \
   --sig "run(address,address,uint256)" "$RAILS_OWNER" "0x0000000000000000000000000000000000000000" 0)
 
@@ -251,7 +251,6 @@ for pair in "PaymentRailsFactory:$RAILS_FACTORY" "CowSwapModuleFactory:$COW_FACT
 done
 
 step "deployed contracts carry the chain config they were given"
-assert_eq "PaymentRailsFactory.wrappedNative" "$(cu $RAILS_FACTORY 'wrappedNative()(address)')" "$WETH"
 assert_eq "CowSwapModuleFactory.cowSettlement" "$(cu $COW_FACTORY 'cowSettlement()(address)')" "$GPV2_SETTLEMENT"
 assert_eq "CowSwapModuleFactory.owner" "$(cu $COW_FACTORY 'owner()(address)')" "$RAILS_OWNER"
 assert_eq "DexSwapModule.router" "$(cu $DEX_MODULE 'router()(address)')" "$UNISWAP_V3_ROUTER"
@@ -267,7 +266,6 @@ send "$RAILS_OWNER" "$RAILS_FACTORY" "create(address)" "$RAILS_OWNER" || bad "cr
 RAILS_A=$(addr_from_log "rails A" "$RAILS_FACTORY" "PaymentRailsCreated(address,address)")
 ok "rails A = $RAILS_A"
 assert_eq "rails A owner" "$(cu $RAILS_A 'owner()(address)')" "$RAILS_OWNER"
-assert_eq "rails A wrappedNative (inherited from the factory)" "$(cu $RAILS_A 'wrappedNative()(address)')" "$WETH"
 assert_eq "registry: isDeployedInstance(A)" "$(cu $RAILS_FACTORY 'isDeployedInstance(address)(bool)' $RAILS_A)" "true"
 
 step "createDeterministic() — rails B, address predicted before deployment"
@@ -306,30 +304,21 @@ send "$FUNDER" "$WETH" "transfer(address,uint256)" "$RAILS_B" "10000000000000000
 assert_eq "rails A WETH" "$(cu $RAILS_A 'getTokenBalance(address)(uint256)' $WETH)" "10000000000000000000"
 assert_eq "rails B USDC" "$(cu $RAILS_B 'getTokenBalance(address)(uint256)' $USDC)" "2000000000"
 
-step "native ETH: a raw value transfer into rails B, then an owner-only wrap through the real WETH"
+step "native ETH: raw value transfers into rails B are held as-is; only the owner can sweep them out"
+WETH_B_BEFORE=$(cu $RAILS_B 'getTokenBalance(address)(uint256)' $WETH)
 send "$FUNDER" "$RAILS_B" --value 1ether || bad "raw ETH transfer to rails B"
 log_has "$RAILS_B" "NativeReceived(address,uint256)" && ok "NativeReceived emitted" || bad "no NativeReceived"
-assert_eq "rails B native balance" "$(cast balance --rpc-url "$RPC" "$RAILS_B")" "1000000000000000000"
-send_reverts "wrapNative() from the keeper reverts (owner-only)" "$KEEPER" "$RAILS_B" "wrapNative()"
-send "$RAILS_OWNER" "$RAILS_B" "wrapNative()" || bad "wrapNative() from the owner"
-log_has "$RAILS_B" "NativeWrapped(address,uint256)" && ok "NativeWrapped emitted" || bad "no NativeWrapped"
-assert_eq "rails B native balance after wrap" "$(cast balance --rpc-url "$RPC" "$RAILS_B")" "0"
-assert_eq "rails B WETH after wrap (1 funded + 1 wrapped)" "$(cu $RAILS_B 'getTokenBalance(address)(uint256)' $WETH)" "2000000000000000000"
-send_reverts "wrapNative() with nothing to wrap reverts" "$RAILS_OWNER" "$RAILS_B" "wrapNative()"
-
-step "owner-only native exit on rails B: sweepNative(recipient) unwraps every WETH and pays all ETH to a fresh recipient"
 send "$FUNDER" "$RAILS_B" --value 1ether || bad "second raw ETH transfer to rails B"
+assert_eq "rails B native balance" "$(cast balance --rpc-url "$RPC" "$RAILS_B")" "2000000000000000000"
 send_reverts "sweepNative() from the attacker reverts" "$ATTACKER" "$RAILS_B" "sweepNative(address)" "$ATTACKER"
-EXPECTED_SWEEP=$(python3 -c "print($(bal $WETH $RAILS_B) + $(cast balance --rpc-url "$RPC" "$RAILS_B"))")
 # A fresh address: the public-mnemonic accounts carry EIP-7702 delegations on mainnet that forward value away.
 NATIVE_RECIPIENT=$(cast wallet new --json | jq -r '.[0].address')
 send "$RAILS_OWNER" "$RAILS_B" "sweepNative(address)" "$NATIVE_RECIPIENT" || bad "sweepNative() from the owner"
 log_has "$RAILS_B" "NativeSwept(address,uint256)" && ok "NativeSwept emitted" || bad "no NativeSwept"
-assert_eq "rails B WETH after sweep" "$(cu $RAILS_B 'getTokenBalance(address)(uint256)' $WETH)" "0"
 assert_eq "rails B native after sweep" "$(cast balance --rpc-url "$RPC" "$RAILS_B")" "0"
-assert_eq "recipient received raw ETH + every unwrapped WETH" "$(cast balance --rpc-url "$RPC" "$NATIVE_RECIPIENT")" "$EXPECTED_SWEEP"
-# Re-fund WETH so the later rails B steps that expect a WETH balance still hold.
-send "$FUNDER" "$WETH" "transfer(address,uint256)" "$RAILS_B" "1000000000000000000" || bad "re-fund B WETH after the sweep"
+assert_eq "recipient received every ETH" "$(cast balance --rpc-url "$RPC" "$NATIVE_RECIPIENT")" "2000000000000000000"
+assert_eq "rails B WETH untouched by the sweep" "$(cu $RAILS_B 'getTokenBalance(address)(uint256)' $WETH)" "$WETH_B_BEFORE"
+send_reverts "sweepNative() with nothing left reverts" "$RAILS_OWNER" "$RAILS_B" "sweepNative(address)" "$NATIVE_RECIPIENT"
 
 # ─────────────────── oracle helpers (independent of the module's math) ───────────────────
 feed_answer() {

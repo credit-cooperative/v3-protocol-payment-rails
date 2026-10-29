@@ -2,8 +2,6 @@
 pragma solidity ^0.8.29;
 
 import { PaymentRailsBase } from "../PaymentRailsBase.t.sol";
-import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
-import { Errors } from "../../../../../src/libraries/Errors.sol";
 import { StipendSender } from "../../../../shared/mocks/NativeMocks.sol";
 import { VmSafe } from "forge-std/src/Vm.sol";
 
@@ -18,33 +16,19 @@ contract PaymentRailsReceiveTest is PaymentRailsBase {
         vm.deal(address(sender), 100 ether);
     }
 
-    function test_RevertGiven_NativeIngressIsDisabled() external {
-        PaymentRails disabled = new PaymentRails(owner, address(0));
-        vm.deal(executor, VALUE);
-
-        vm.prank(executor);
-        (bool ok, bytes memory ret) = address(disabled).call{ value: VALUE }("");
-
-        assertFalse(ok, "value transfer must bounce when ingress is disabled");
-        assertEq(ret, abi.encodeWithSelector(Errors.PaymentRails_NativeNotSupported.selector));
-        assertEq(address(disabled).balance, 0, "nothing may strand");
-        assertEq(executor.balance, VALUE, "sender keeps the value");
-    }
-
-    function test_RevertWhen_ValueIsZero() external {
+    function test_WhenValueIsZero() external {
         vm.recordLogs();
 
         vm.prank(executor);
-        (bool ok, bytes memory ret) = address(paymentRails).call{ value: 0 }("");
+        (bool ok,) = address(paymentRails).call{ value: 0 }("");
 
-        assertFalse(ok, "zero-value call must revert");
-        assertEq(ret, abi.encodeWithSelector(Errors.PaymentRails_ZeroAmount.selector));
+        assertTrue(ok, "zero-value call must not revert a payer's batch");
         assertEq(vm.getRecordedLogs().length, 0, "no NativeReceived may be emitted for zero value");
-        assertFalse(sender.sendWithSend(payable(address(paymentRails)), 0), "zero-value send() must fail");
+        assertTrue(sender.sendWithSend(payable(address(paymentRails)), 0), "zero-value send() must succeed");
+        assertEq(address(paymentRails).balance, 0);
     }
 
     function test_WhenValueIsSentWithCall() external {
-        uint256 wrappedBefore = weth.balanceOf(address(paymentRails));
         vm.deal(executor, VALUE);
 
         vm.expectEmit(true, false, false, true, address(paymentRails));
@@ -55,7 +39,6 @@ contract PaymentRailsReceiveTest is PaymentRailsBase {
         assertTrue(ok);
 
         assertEq(address(paymentRails).balance, VALUE);
-        assertEq(weth.balanceOf(address(paymentRails)), wrappedBefore);
     }
 
     /// @dev Coverage instrumentation disables the optimizer and inflates receive() past the stipend, so the
@@ -77,18 +60,6 @@ contract PaymentRailsReceiveTest is PaymentRailsBase {
 
         assertTrue(ok, "send() must succeed within the stipend");
         assertEq(address(paymentRails).balance, VALUE);
-    }
-
-    function test_WhenValueComesFromTheWrapper() external {
-        vm.deal(address(weth), VALUE);
-        vm.recordLogs();
-
-        vm.prank(address(weth));
-        (bool ok,) = address(paymentRails).call{ value: VALUE }("");
-
-        assertTrue(ok, "the wrapper's payout must be accepted");
-        assertEq(address(paymentRails).balance, VALUE);
-        assertEq(vm.getRecordedLogs().length, 0, "the wrapper's payout is not a receipt");
     }
 
     function test_RevertWhen_CalldataIsNonEmpty() external {

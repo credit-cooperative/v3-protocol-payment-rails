@@ -4,7 +4,6 @@ pragma solidity ^0.8.29;
 import { Test } from "forge-std/src/Test.sol";
 import { PaymentRails } from "../../../../src/core/PaymentRails.sol";
 import { MockERC20 } from "../../../shared/mocks/MockERC20.sol";
-import { MockWETH9 } from "../../../shared/mocks/MockWETH9.sol";
 import { MockActionModule } from "../../../shared/mocks/MockActionModule.sol";
 
 /// @dev Base test contract for PaymentRails unit tests.
@@ -31,8 +30,6 @@ abstract contract PaymentRailsBase is Test {
 
     event NativeReceived(address indexed sender, uint256 amount);
 
-    event NativeWrapped(address indexed caller, uint256 amount);
-
     event NativeSwept(address indexed recipient, uint256 amount);
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -41,7 +38,6 @@ abstract contract PaymentRailsBase is Test {
 
     uint256 internal constant INITIAL_BALANCE = 1000e18;
     uint256 internal constant MIN_BALANCE = 100e18;
-    uint256 internal constant NATIVE_MIN = 0.1 ether;
     string internal constant ACTION_TYPE = "MOCK";
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -51,7 +47,6 @@ abstract contract PaymentRailsBase is Test {
     PaymentRails internal paymentRails;
     MockActionModule internal actionModule;
     MockERC20 internal token;
-    MockWETH9 internal weth;
 
     address internal owner;
     address internal nonOwner;
@@ -68,10 +63,8 @@ abstract contract PaymentRailsBase is Test {
         executor = makeAddr("executor");
         recipient = makeAddr("recipient");
 
-        weth = new MockWETH9();
-
         vm.startPrank(owner);
-        paymentRails = new PaymentRails(owner, address(weth));
+        paymentRails = new PaymentRails(owner);
         vm.stopPrank();
 
         actionModule = new MockActionModule();

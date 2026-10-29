@@ -6,7 +6,6 @@ PaymentRailsFactory_CreateDeterministic
 ├── when owner is valid address
 │   ├── it should deploy a new PaymentRails contract
 │   ├── it should set the owner on the deployed PaymentRails
-│   ├── it should set wrappedNative on the deployed PaymentRails
 │   ├── it should deploy to the predicted address
 │   ├── it should register the instance in the factory
 │   ├── it should emit a PaymentRailsCreated event

@@ -137,7 +137,7 @@ contract DexSwapDryRun is Script, StdCheats {
         vm.startPrank(deployer);
 
         // Production owner is a multi-sig; the deployer stands in for it in this simulation.
-        paymentRails = new PaymentRails(deployer, address(0));
+        paymentRails = new PaymentRails(deployer);
         console2.log("[DEPLOYED] PaymentRails:   ", address(paymentRails));
 
         // sequencerUptimeFeed = address(0) and gracePeriod = 0 for L1 dry run

@@ -189,7 +189,7 @@ contract Create_AtumModuleFactory_Test is AtumModuleFactoryBase {
     /// A real PaymentRails deployed outside the factory is rejected. That is the cost of trusting
     /// the list.
     function test_Create_RevertsWhenPaymentRailsWasNotDeployedByTheFactory() external {
-        address direct = address(new PaymentRails(address(this), address(0)));
+        address direct = address(new PaymentRails(address(this)));
         vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_UnknownPaymentRails.selector, direct));
         factory.create(owner, direct, keeper);
     }

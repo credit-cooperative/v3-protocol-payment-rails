@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import { Test, Vm, console2 } from "forge-std/src/Test.sol";
+import { Test } from "forge-std/src/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
@@ -12,11 +12,16 @@ import { Errors } from "../../../../../src/libraries/Errors.sol";
 import { StipendSender } from "../../../../shared/mocks/NativeMocks.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-/// @notice Avalanche C-Chain fork tests for native AVAX ingress on PaymentRails.
+interface IWAVAX {
+    function deposit() external payable;
+}
+
+/// @notice Avalanche C-Chain fork tests for native AVAX on PaymentRails.
 /// @dev Tree: tests/fork/concrete/core/payment-rails/paymentRailsNativeAvalancheFork.tree
 ///
-/// Raw AVAX in, wrap through the real WAVAX contract, swap through the real SwapRouter02 with live
-/// Chainlink feeds. `vm.deal` only funds the senders.
+/// Raw AVAX in through call and the 2300-gas stipend on the live chain's gas schedule, owner-only sweep out,
+/// and a WAVAX token route through the real SwapRouter02 with live Chainlink feeds running beside held native.
+/// `vm.deal` only funds the senders.
 contract PaymentRailsNativeAvalancheForkTest is Test {
     /*//////////////////////////////////////////////////////////////////////////
                             AVALANCHE C-CHAIN CONSTANTS
@@ -41,7 +46,6 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     event NativeReceived(address indexed sender, uint256 amount);
-    event NativeWrapped(address indexed caller, uint256 amount);
     event NativeSwept(address indexed recipient, uint256 amount);
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -49,7 +53,6 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     PaymentRails internal paymentRails;
-    DexSwapModule internal module;
     StipendSender internal coordinator;
 
     address internal owner;
@@ -71,17 +74,11 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
         keeper = makeAddr("keeper");
         sender = makeAddr("sender");
 
-        module = new DexSwapModule(SWAP_ROUTER_02, address(0), 0);
-        paymentRails = new PaymentRails(owner, WAVAX);
+        paymentRails = new PaymentRails(owner);
         coordinator = new StipendSender();
 
         vm.deal(sender, 100 ether);
         vm.deal(address(coordinator), 100 ether);
-
-        // Params are built before the prank: encodeParams is an external call and would consume it.
-        bytes memory params = _wavaxToUsdcParams();
-        vm.prank(owner);
-        paymentRails.configureToken(WAVAX, "SWAP", address(module), 0, params, true);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -106,102 +103,19 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
         assertEq(address(paymentRails).balance, AVAX_IN);
     }
 
-    function test_WhenWrapNativeIsCalled() external {
+    function test_WhenTheOwnerSweeps() external {
         _sendAvax(AVAX_IN);
-        uint256 wavaxContractNativeBefore = WAVAX.balance;
-
-        vm.expectEmit(true, false, false, true, address(paymentRails));
-        emit NativeWrapped(owner, AVAX_IN);
-
-        vm.prank(owner);
-        uint256 wrapped = paymentRails.wrapNative();
-
-        assertEq(wrapped, AVAX_IN);
-        assertEq(IERC20(WAVAX).balanceOf(address(paymentRails)), AVAX_IN, "WAVAX not credited 1:1");
-        assertEq(address(paymentRails).balance, 0, "native balance must be fully swept");
-        assertEq(WAVAX.balance - wavaxContractNativeBefore, AVAX_IN, "WAVAX contract did not receive the AVAX");
-    }
-
-    function test_RevertWhen_ANonOwnerCallsWrapNative() external {
-        _sendAvax(AVAX_IN);
-
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, keeper));
-        vm.prank(keeper);
-        paymentRails.wrapNative();
-
-        assertEq(address(paymentRails).balance, AVAX_IN, "the keeper's wrap attempt must move nothing");
-        assertEq(IERC20(WAVAX).balanceOf(address(paymentRails)), 0);
-    }
-
-    function test_WhenTheWrappedBalanceIsExecuted() external {
-        _sendAvax(AVAX_IN);
-        vm.prank(owner);
-        paymentRails.wrapNative();
-
-        bytes memory params = _wavaxToUsdcParams();
-        (uint256 estimate,) = module.estimateOutput(WAVAX, AVAX_IN, params);
-        uint256 usdcBefore = IERC20(USDC).balanceOf(address(paymentRails));
-
-        vm.prank(keeper);
-        bool success = paymentRails.executeAction(WAVAX, AVAX_IN);
-
-        uint256 received = IERC20(USDC).balanceOf(address(paymentRails)) - usdcBefore;
-        console2.log("native AVAX -> WAVAX -> USDC received:", received, "oracle estimate:", estimate);
-
-        assertTrue(success, "swap must succeed against the real router");
-        assertEq(IERC20(WAVAX).balanceOf(address(paymentRails)), 0, "WAVAX not fully spent");
-        assertGe(received, estimate * (10_000 - SLIPPAGE_BPS) / 10_000, "output below oracle floor");
-        assertLe(received, estimate * (10_000 + SLIPPAGE_BPS) / 10_000, "output implausibly above estimate");
-        assertEq(IERC20(WAVAX).balanceOf(address(module)), 0, "module retained WAVAX");
-        assertEq(IERC20(USDC).balanceOf(address(module)), 0, "module retained USDC");
-        assertEq(IERC20(WAVAX).allowance(address(module), SWAP_ROUTER_02), 0, "router allowance not revoked");
-    }
-
-    function test_RevertWhen_WrapNativeIsCalledWithNothingToWrap() external {
-        vm.expectRevert(Errors.PaymentRails_ZeroNativeBalance.selector);
-        vm.prank(owner);
-        paymentRails.wrapNative();
-    }
-
-    function test_WhenTheOwnerSweepsRawAvax() external {
-        _sendAvax(AVAX_IN);
+        coordinator.sendWithTransfer(payable(address(paymentRails)), AVAX_IN);
         address exitRecipient = makeAddr("exitRecipient");
 
         vm.expectEmit(true, false, false, true, address(paymentRails));
-        emit NativeSwept(exitRecipient, AVAX_IN);
+        emit NativeSwept(exitRecipient, 2 * AVAX_IN);
 
         vm.prank(owner);
         uint256 amount = paymentRails.sweepNative(exitRecipient);
 
-        assertEq(amount, AVAX_IN);
-        assertEq(exitRecipient.balance, AVAX_IN, "recipient must receive the whole native balance");
-        assertEq(address(paymentRails).balance, 0, "rails must be drained");
-    }
-
-    function test_WhenTheOwnerSweepsWithRealWavaxOnTheRails() external {
-        _sendAvax(AVAX_IN);
-        vm.prank(owner);
-        paymentRails.wrapNative();
-        _sendAvax(AVAX_IN);
-        address exitRecipient = makeAddr("exitRecipient");
-        uint256 wavaxContractNativeBefore = WAVAX.balance;
-
-        vm.recordLogs();
-        vm.prank(owner);
-        uint256 amount = paymentRails.sweepNative(exitRecipient);
-
-        bytes32 receivedSig = keccak256("NativeReceived(address,uint256)");
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].emitter == address(paymentRails)) {
-                assertTrue(logs[i].topics[0] != receivedSig, "the WAVAX payout must not be logged as a receipt");
-            }
-        }
-
-        assertEq(amount, 2 * AVAX_IN, "native plus unwrapped");
-        assertEq(exitRecipient.balance, 2 * AVAX_IN, "recipient receives native plus unwrapped");
-        assertEq(IERC20(WAVAX).balanceOf(address(paymentRails)), 0, "real WAVAX burned");
-        assertEq(wavaxContractNativeBefore - WAVAX.balance, AVAX_IN, "WAVAX contract paid out the AVAX");
+        assertEq(amount, 2 * AVAX_IN, "returned amount");
+        assertEq(exitRecipient.balance, 2 * AVAX_IN, "recipient receives every AVAX");
         assertEq(address(paymentRails).balance, 0, "rails must be drained");
     }
 
@@ -225,35 +139,55 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
         assertEq(address(paymentRails).balance, AVAX_IN, "nothing may move");
     }
 
-    function test_GivenARailWithoutAWrapper() external {
-        PaymentRails bare = new PaymentRails(owner, address(0));
-        // vm.deal models value that arrives without running receive()
-        vm.deal(address(bare), AVAX_IN);
-        address exitRecipient = makeAddr("exitRecipient");
-
+    function test_RevertWhen_TheOwnerSweepsWithNothingHeld() external {
+        vm.expectRevert(Errors.PaymentRails_ZeroNativeBalance.selector);
         vm.prank(owner);
-        bare.sweepNative(exitRecipient);
-
-        assertEq(exitRecipient.balance, AVAX_IN, "force-fed AVAX must be recoverable by the owner");
-        assertEq(address(bare).balance, 0);
+        paymentRails.sweepNative(owner);
     }
 
-    function test_WhenCreatedByAFactoryBuiltWithWavax() external {
-        PaymentRailsFactory factory = new PaymentRailsFactory(address(this), WAVAX);
+    function test_WhenNativeAndAWavaxRouteCoexist() external {
+        DexSwapModule module = new DexSwapModule(SWAP_ROUTER_02, address(0), 0);
+        // Params are built before the prank: encodeParams is an external call and would consume it.
+        bytes memory params = _wavaxToUsdcParams(module);
+        vm.prank(owner);
+        paymentRails.configureToken(WAVAX, "SWAP", address(module), 0, params, true);
+
+        // WAVAX arrives as a token (minted through the real contract), AVAX arrives as native.
+        vm.startPrank(sender);
+        IWAVAX(WAVAX).deposit{ value: AVAX_IN }();
+        IERC20(WAVAX).transfer(address(paymentRails), AVAX_IN);
+        vm.stopPrank();
+        _sendAvax(AVAX_IN);
+
+        vm.prank(keeper);
+        bool success = paymentRails.executeAction(WAVAX, AVAX_IN);
+
+        assertTrue(success, "WAVAX route must swap through the real SwapRouter02");
+        assertEq(IERC20(WAVAX).balanceOf(address(paymentRails)), 0, "WAVAX sold");
+        uint256 usdcOut = IERC20(USDC).balanceOf(address(paymentRails));
+        assertGt(usdcOut, 0, "USDC landed on the rails");
+        assertEq(address(paymentRails).balance, AVAX_IN, "the swap must not touch native");
+
+        vm.prank(owner);
+        paymentRails.sweepNative(owner);
+
+        assertEq(owner.balance, AVAX_IN, "sweep takes native only");
+        assertEq(IERC20(USDC).balanceOf(address(paymentRails)), usdcOut, "sweep must not touch token balances");
+    }
+
+    function test_WhenCreatedByTheFactory() external {
+        PaymentRailsFactory factory = new PaymentRailsFactory(address(this));
         bytes32 salt = keccak256("rain-avalanche");
 
         address predicted = factory.predictDeterministicAddress(owner, salt);
         PaymentRails instance = PaymentRails(payable(factory.createDeterministic(owner, salt)));
+        assertEq(address(instance), predicted, "predicted address must match");
 
-        assertEq(address(instance), predicted, "init code hash must cover both constructor args");
-        assertEq(instance.wrappedNative(), WAVAX);
-
-        vm.prank(sender);
-        (bool ok,) = address(instance).call{ value: AVAX_IN }("");
-        assertTrue(ok);
+        coordinator.sendWithTransfer(payable(address(instance)), AVAX_IN);
+        address exitRecipient = makeAddr("exitRecipient");
         vm.prank(owner);
-        assertEq(instance.wrapNative(), AVAX_IN);
-        assertEq(IERC20(WAVAX).balanceOf(address(instance)), AVAX_IN);
+        assertEq(instance.sweepNative(exitRecipient), AVAX_IN);
+        assertEq(exitRecipient.balance, AVAX_IN);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -266,7 +200,7 @@ contract PaymentRailsNativeAvalancheForkTest is Test {
         assertTrue(ok, "AVAX send failed");
     }
 
-    function _wavaxToUsdcParams() internal view returns (bytes memory) {
+    function _wavaxToUsdcParams(DexSwapModule module) internal pure returns (bytes memory) {
         return module.encodeParams(
             DataTypes.DexSwapParams({
                 targetToken: USDC,

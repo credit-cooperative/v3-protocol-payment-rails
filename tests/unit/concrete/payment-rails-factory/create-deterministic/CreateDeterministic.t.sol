@@ -29,12 +29,6 @@ contract CreateDeterministic_Test is PaymentRailsFactoryBase {
         assertEq(PaymentRails(payable(instance)).owner(), owner);
     }
 
-    function test_WhenOwnerIsValid_ShouldSetWrappedNative() external {
-        address instance = factory.createDeterministic(owner, DEFAULT_SALT);
-        assertEq(PaymentRails(payable(instance)).wrappedNative(), address(weth));
-        assertEq(PaymentRails(payable(instance)).wrappedNative(), factory.wrappedNative());
-    }
-
     function test_WhenOwnerIsValid_ShouldDeployToPredictedAddress() external {
         address predicted = factory.predictDeterministicAddress(owner, DEFAULT_SALT);
         address instance = factory.createDeterministic(owner, DEFAULT_SALT);

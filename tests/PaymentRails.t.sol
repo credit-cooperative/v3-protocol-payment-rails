@@ -37,7 +37,7 @@ contract PaymentRailsTest is Test {
         recipient = makeAddr("recipient");
 
         // Deploy contracts
-        paymentRails = new PaymentRails(owner, address(0));
+        paymentRails = new PaymentRails(owner);
         forwardModule = new ForwardModule();
         token = new MockERC20("Test Token", "TEST");
 

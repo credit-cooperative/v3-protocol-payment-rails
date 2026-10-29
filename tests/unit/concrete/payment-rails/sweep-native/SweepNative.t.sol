@@ -4,20 +4,22 @@ pragma solidity ^0.8.29;
 import { PaymentRailsBase } from "../PaymentRailsBase.t.sol";
 import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
 import { Errors } from "../../../../../src/libraries/Errors.sol";
-import { RejectingRecipient, ReentrantSweepRecipient, ShortMintWETH9 } from "../../../../shared/mocks/NativeMocks.sol";
+import { RejectingRecipient, ReentrantSweepRecipient } from "../../../../shared/mocks/NativeMocks.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Vm } from "forge-std/src/Vm.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @dev Native is funded before the owner prank: the funding helper issues its own prank.
 contract PaymentRailsSweepNativeTest is PaymentRailsBase {
     uint256 internal constant VALUE = 3 ether;
 
-    function test_RevertWhen_CallerIsNotOwner() external {
+    function test_RevertWhen_CallerIsNotTheOwner() external {
         _sendNative(executor, VALUE);
 
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, nonOwner));
         vm.prank(nonOwner);
-        paymentRails.sweepNative(recipient);
+        paymentRails.sweepNative(nonOwner);
+
+        assertEq(address(paymentRails).balance, VALUE, "a stranger's sweep attempt must move nothing");
     }
 
     function test_RevertWhen_RecipientIsZeroAddress() external {
@@ -28,39 +30,24 @@ contract PaymentRailsSweepNativeTest is PaymentRailsBase {
         paymentRails.sweepNative(address(0));
     }
 
-    function test_RevertGiven_NoNativeAndNoWrappedBalance() external {
+    function test_RevertGiven_NoNativeBalance() external {
         vm.expectRevert(Errors.PaymentRails_ZeroNativeBalance.selector);
         vm.prank(owner);
         paymentRails.sweepNative(recipient);
     }
 
-    function test_RevertGiven_TheWrapperPaysOutLessThanTheWrappedBalance() external {
-        ShortMintWETH9 shortWrapper = new ShortMintWETH9();
-        PaymentRails rails = new PaymentRails(owner, address(shortWrapper));
-        deal(address(shortWrapper), address(rails), VALUE);
-        vm.deal(address(shortWrapper), VALUE);
-
-        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRails_UnwrapAmountMismatch.selector, VALUE, VALUE / 2));
-        vm.prank(owner);
-        rails.sweepNative(recipient);
-    }
-
     function test_RevertWhen_RecipientRejects() external {
         RejectingRecipient rejecting = new RejectingRecipient();
         _sendNative(executor, VALUE);
-        vm.prank(owner);
-        paymentRails.wrapNative();
-        _sendNative(executor, 1 ether);
 
         vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRails_NativeTransferFailed.selector, address(rejecting)));
         vm.prank(owner);
         paymentRails.sweepNative(address(rejecting));
 
-        assertEq(address(paymentRails).balance, 1 ether, "native must be unchanged");
-        assertEq(weth.balanceOf(address(paymentRails)), VALUE, "wrapped must be unchanged");
+        assertEq(address(paymentRails).balance, VALUE, "native must be unchanged");
     }
 
-    function test_GivenOnlyNativeBalance() external {
+    function test_GivenANativeBalance() external {
         _sendNative(executor, VALUE);
 
         vm.expectEmit(true, false, false, true, address(paymentRails));
@@ -74,74 +61,36 @@ contract PaymentRailsSweepNativeTest is PaymentRailsBase {
         assertEq(address(paymentRails).balance, 0, "rails drained");
     }
 
-    function test_GivenOnlyWrappedBalance() external {
-        _sendNative(executor, VALUE);
-        vm.prank(owner);
-        paymentRails.wrapNative();
-
-        vm.recordLogs();
-        vm.prank(owner);
-        uint256 amount = paymentRails.sweepNative(recipient);
-
-        bytes32 receivedSig = keccak256("NativeReceived(address,uint256)");
-        bytes32 sweptSig = keccak256("NativeSwept(address,uint256)");
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        bool sawSwept;
-        for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].emitter != address(paymentRails)) continue;
-            assertTrue(logs[i].topics[0] != receivedSig, "the wrapper payout must not be logged as a receipt");
-            if (logs[i].topics[0] == sweptSig) sawSwept = true;
-        }
-        assertTrue(sawSwept, "NativeSwept must be emitted");
-
-        assertEq(amount, VALUE, "returned amount");
-        assertEq(weth.balanceOf(address(paymentRails)), 0, "wrapped unwrapped in full");
-        assertEq(recipient.balance, VALUE, "recipient balance");
-        assertEq(address(paymentRails).balance, 0, "rails drained");
-    }
-
-    function test_GivenBothNativeAndWrappedBalance() external {
-        _sendNative(executor, VALUE);
-        vm.prank(owner);
-        paymentRails.wrapNative();
-        _sendNative(executor, 1 ether);
-
-        vm.prank(owner);
-        uint256 amount = paymentRails.sweepNative(recipient);
-
-        assertEq(amount, VALUE + 1 ether, "returned amount is the sum");
-        assertEq(recipient.balance, VALUE + 1 ether, "recipient receives the sum");
-        assertEq(address(paymentRails).balance, 0, "native drained");
-        assertEq(weth.balanceOf(address(paymentRails)), 0, "wrapped drained");
-    }
-
-    function test_WhenRecipientReEntersWrapNative() external {
+    function test_WhenANonOwnerRecipientReEntersSweepNative() external {
         ReentrantSweepRecipient reentrant = new ReentrantSweepRecipient();
         _sendNative(executor, VALUE);
 
         vm.prank(owner);
         paymentRails.sweepNative(address(reentrant));
 
-        assertEq(reentrant.rejectedWith(), Ownable.OwnableUnauthorizedAccount.selector, "stranger must be rejected");
+        // The recipient is not the owner, so the nested call fails the owner check before the guard.
+        assertEq(reentrant.rejectedWith(), Ownable.OwnableUnauthorizedAccount.selector, "re-entry must be rejected");
         assertEq(address(reentrant).balance, VALUE, "recipient receives the full amount");
         assertEq(address(paymentRails).balance, 0);
-        assertEq(weth.balanceOf(address(paymentRails)), 0, "nothing was wrapped during the sweep");
     }
 
-    function test_GivenNativeIngressIsDisabled() external {
-        PaymentRails disabled = new PaymentRails(owner, address(0));
-        // vm.deal models value that arrives without running receive()
-        vm.deal(address(disabled), VALUE);
+    function test_WhenTheOwnerReEntersSweepNativeAsRecipient() external {
+        // The recipient is also the owner, so the nested call passes the owner check and meets the guard.
+        ReentrantSweepRecipient reentrant = new ReentrantSweepRecipient();
+        PaymentRails rails = new PaymentRails(address(reentrant));
+        vm.deal(address(rails), VALUE);
 
-        vm.prank(owner);
-        uint256 amount = disabled.sweepNative(recipient);
+        vm.prank(address(reentrant));
+        uint256 amount = rails.sweepNative(address(reentrant));
 
+        assertEq(reentrant.rejectedWith(), ReentrancyGuard.ReentrancyGuardReentrantCall.selector, "guard must reject");
         assertEq(amount, VALUE);
-        assertEq(recipient.balance, VALUE, "force-fed value must be recoverable");
-        assertEq(address(disabled).balance, 0);
+        assertEq(address(reentrant).balance, VALUE, "recipient receives the full amount once");
+        assertEq(address(rails).balance, 0);
     }
 
     function test_GivenValueArrivedWithoutCallingReceive() external {
+        // vm.deal models value that arrives without running receive()
         vm.deal(address(paymentRails), VALUE);
         _sendNative(executor, 1 ether);
 
@@ -152,23 +101,25 @@ contract PaymentRailsSweepNativeTest is PaymentRailsBase {
         assertEq(recipient.balance, VALUE + 1 ether);
     }
 
-    function testFuzz_WhenNativeAndWrappedBalancesAreArbitrary(uint256 native, uint256 wrapped) external {
-        native = bound(native, 0, 1_000_000 ether);
-        wrapped = bound(wrapped, 0, 1_000_000 ether);
-        vm.assume(native + wrapped > 0);
-        if (wrapped > 0) {
-            _sendNative(executor, wrapped);
-            vm.prank(owner);
-            paymentRails.wrapNative();
-        }
-        if (native > 0) _sendNative(executor, native);
+    function test_GivenTokenBalancesAreHeld() external {
+        uint256 tokenBefore = token.balanceOf(address(paymentRails));
+        _sendNative(executor, VALUE);
+
+        vm.prank(owner);
+        paymentRails.sweepNative(recipient);
+
+        assertEq(token.balanceOf(address(paymentRails)), tokenBefore, "ERC20 balances are not part of the sweep");
+    }
+
+    function testFuzz_WhenTheNativeBalanceIsAnyNonZeroAmount(uint256 value) external {
+        value = bound(value, 1, 1_000_000 ether);
+        _sendNative(executor, value);
 
         vm.prank(owner);
         uint256 amount = paymentRails.sweepNative(recipient);
 
-        assertEq(amount, native + wrapped, "returned amount");
-        assertEq(recipient.balance, native + wrapped, "recipient receives the sum");
-        assertEq(address(paymentRails).balance, 0, "native drained");
-        assertEq(weth.balanceOf(address(paymentRails)), 0, "wrapped drained");
+        assertEq(amount, value, "returned amount");
+        assertEq(recipient.balance, value, "recipient receives the whole balance");
+        assertEq(address(paymentRails).balance, 0, "rails drained");
     }
 }

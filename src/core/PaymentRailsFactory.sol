@@ -19,9 +19,6 @@ contract PaymentRailsFactory is IPaymentRailsFactory, Ownable2Step {
                                     STORAGE
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc IPaymentRailsFactory
-    address public immutable wrappedNative;
-
     /// @dev Array of all deployed PaymentRails instances.
     address[] private _deployedInstances;
 
@@ -34,16 +31,7 @@ contract PaymentRailsFactory is IPaymentRailsFactory, Ownable2Step {
 
     /// @param initialOwner Address allowed to create instances. Taken as an argument, not
     /// `msg.sender`, so the deployer never holds the role and no handover is required.
-    /// @param wrappedNative_ The chain's wrapped-native token passed to every instance, or address(0) to
-    /// disable native ingress.
-    constructor(address initialOwner, address wrappedNative_) Ownable(initialOwner) {
-        // Check: Wrapped-native is a contract when set (zero disables native ingress)
-        if (wrappedNative_ != address(0) && wrappedNative_.code.length == 0) {
-            revert Errors.PaymentRailsFactory_WrappedNativeNotContract(wrappedNative_);
-        }
-
-        wrappedNative = wrappedNative_;
-    }
+    constructor(address initialOwner) Ownable(initialOwner) { }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 OWNERSHIP
@@ -67,7 +55,7 @@ contract PaymentRailsFactory is IPaymentRailsFactory, Ownable2Step {
         }
 
         // Interactions: Deploy new PaymentRails with railsOwner.
-        paymentRails = address(new PaymentRails(railsOwner, wrappedNative));
+        paymentRails = address(new PaymentRails(railsOwner));
 
         // Effects: Register in the on-chain registry.
         _register(paymentRails, railsOwner);
@@ -81,7 +69,7 @@ contract PaymentRailsFactory is IPaymentRailsFactory, Ownable2Step {
         }
 
         // Interactions: Deploy new PaymentRails with deterministic address.
-        paymentRails = address(new PaymentRails{ salt: salt }(railsOwner, wrappedNative));
+        paymentRails = address(new PaymentRails{ salt: salt }(railsOwner));
 
         // Effects: Register in the on-chain registry.
         _register(paymentRails, railsOwner);
@@ -93,8 +81,7 @@ contract PaymentRailsFactory is IPaymentRailsFactory, Ownable2Step {
 
     /// @inheritdoc IPaymentRailsFactory
     function predictDeterministicAddress(address railsOwner, bytes32 salt) external view returns (address predicted) {
-        bytes32 bytecodeHash =
-            keccak256(abi.encodePacked(type(PaymentRails).creationCode, abi.encode(railsOwner, wrappedNative)));
+        bytes32 bytecodeHash = keccak256(abi.encodePacked(type(PaymentRails).creationCode, abi.encode(railsOwner)));
         predicted =
             address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, bytecodeHash)))));
     }

@@ -34,7 +34,7 @@ contract Create_CowSwapModuleFactory_Test is CowSwapModuleFactoryBase {
             fail();
         } catch { }
 
-        assertEq(factory.getModulesForPaymentRails(paymentRails).length, 0);
+        assertEq(factory.getModulesForPaymentRails(payable(paymentRails)).length, 0);
         assertEq(factory.getModuleCount(), 0);
     }
 

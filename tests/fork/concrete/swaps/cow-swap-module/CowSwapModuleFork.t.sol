@@ -102,7 +102,7 @@ abstract contract CowSwapModuleForkBase is Test {
         realDomainSeparator = IGPv2Settlement(GPV2_SETTLEMENT).domainSeparator();
 
         vm.startPrank(owner);
-        paymentRails = new PaymentRails(owner, address(0));
+        paymentRails = new PaymentRails(owner);
         module = new CowSwapModule(GPV2_SETTLEMENT, owner, address(paymentRails), address(0), 0);
         vm.stopPrank();
 
@@ -1399,7 +1399,7 @@ contract CowSwapModuleForkSecurityTest is CowSwapModuleForkBase {
 
     function test_Security_UnauthorizedPaymentRails_ExecuteBlocked() external {
         vm.prank(owner);
-        PaymentRails paymentRails2 = new PaymentRails(owner, address(0));
+        PaymentRails paymentRails2 = new PaymentRails(owner);
         deal(USDC, address(paymentRails2), USDC_SELL_AMOUNT * 10);
 
         bytes memory params =
