@@ -27,6 +27,8 @@ jobs:
 
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v1"
+        with:
+          bun-version: "1.4.4"
 
       - name: "Install the Node.js dependencies"
         run: "bun install --frozen-lockfile"
@@ -59,6 +61,8 @@ jobs:
 
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v1"
+        with:
+          bun-version: "1.4.4"
 
       - name: "Install the Node.js dependencies"
         run: "bun install --frozen-lockfile"
@@ -97,6 +101,8 @@ jobs:
 
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v1"
+        with:
+          bun-version: "1.4.4"
 
       - name: "Install the Node.js dependencies"
         run: "bun install --frozen-lockfile"
@@ -141,6 +147,8 @@ jobs:
 
       - name: "Install Bun"
         uses: "oven-sh/setup-bun@v1"
+        with:
+          bun-version: "1.4.4"
 
       - name: "Install the Node.js dependencies"
         run: "bun install --frozen-lockfile"
