@@ -129,14 +129,41 @@
       "constructorArgs": ["0x65655D5d18F41775156CdFb53cC5710E13380070"]
     },
     "PaymentRailsFactory": {
-      "address": "0x0000dd52479de7b800b2f72323a2ba01150db254",
-      "blockNumber": 11757773,
-      "commit": "5e19683",
+      "address": "0x1cf6114c81f473c0591c12254485f62c7cb44624",
+      "blockNumber": 12021439,
+      "commit": "212f7ba",
       "deployer": "0xf2a48133d17d27a3cb03b281fa961749272d5296",
-      "timestamp": "2026-09-22T12:04:25.849Z",
-      "txHash": "0x6850e71fd95148b6e9b504367ac9967f3bafa51884fa5d5269e803b2fec4e23d",
+      "timestamp": "2026-10-29T18:55:25.086Z",
+      "txHash": "0x754721f344b2b97522e19d3de046dee34baeb33114a89531dab5a6ffa07a2ccc",
       "version": "1.0.0",
-      "constructorArgs": ["0x023A86c6e2fA035172f0106356cf5E27837c0b28"]
+      "constructorArgs": ["0x023A86c6e2fA035172f0106356cf5E27837c0b28"],
+      "history": [
+        {
+          "address": "0x6f0554db96a8ff4bce0d9fa4f7012a8b8c96a549",
+          "blockNumber": 12014709,
+          "commit": "31daba6",
+          "deployer": "0xf2a48133d17d27a3cb03b281fa961749272d5296",
+          "timestamp": "2026-10-28T20:28:32.154Z",
+          "txHash": "0xb3e26636480bbcd22e834bf436ab6ccb516a005326db26a11bef97a308d0273b",
+          "version": "1.0.0",
+          "constructorArgs": [
+            "0x023A86c6e2fA035172f0106356cf5E27837c0b28",
+            "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"
+          ],
+          "deprecated": "2026-10-30"
+        },
+        {
+          "address": "0x0000dd52479de7b800b2f72323a2ba01150db254",
+          "blockNumber": 11757773,
+          "commit": "5e19683",
+          "deployer": "0xf2a48133d17d27a3cb03b281fa961749272d5296",
+          "timestamp": "2026-09-22T12:04:25.849Z",
+          "txHash": "0x6850e71fd95148b6e9b504367ac9967f3bafa51884fa5d5269e803b2fec4e23d",
+          "version": "1.0.0",
+          "constructorArgs": ["0x023A86c6e2fA035172f0106356cf5E27837c0b28"],
+          "deprecated": "2026-10-29"
+        }
+      ]
     }
   }
 }
