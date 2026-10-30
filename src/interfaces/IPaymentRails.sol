@@ -14,6 +14,9 @@ import { DataTypes } from "../types/DataTypes.sol";
 ///
 /// Safety mechanisms include minimum-balance thresholds, enable/disable flags, module validation,
 /// and reentrancy protection.
+///
+/// Native value is accepted by `receive` and held as-is (zero value is a no-op); it is not routed through modules. Only
+/// the owner can move it out, with {sweepNative}.
 interface IPaymentRails {
     /*//////////////////////////////////////////////////////////////////////////
                                     EVENTS
@@ -57,6 +60,16 @@ interface IPaymentRails {
     event ActionFailed(
         address indexed token, string actionType, uint256 amount, string reason, address indexed executor
     );
+
+    /// @notice Emitted when native value is received.
+    /// @param sender The address that sent the value.
+    /// @param amount The value received, in wei.
+    event NativeReceived(address indexed sender, uint256 amount);
+
+    /// @notice Emitted when the owner sweeps the native balance out.
+    /// @param recipient The address that received the value.
+    /// @param amount The value sent, in wei.
+    event NativeSwept(address indexed recipient, uint256 amount);
 
     /*//////////////////////////////////////////////////////////////////////////
                                   CONFIGURATION
@@ -118,6 +131,23 @@ interface IPaymentRails {
     /// @param amount Amount to process.
     /// @return success True if the module execution succeeded.
     function executeAction(address token, uint256 amount) external returns (bool success);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    NATIVE VALUE
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Sends the entire native balance to `recipient`.
+    /// @dev Owner-only. Emits a {NativeSwept} event. Also recovers value that arrived without `receive`
+    /// (force-fed or a block reward). Reverts if the recipient refuses the value.
+    ///
+    /// Requirements:
+    /// - The caller must be the contract owner.
+    /// - `recipient` must not be `address(0)`.
+    /// - The native balance must be greater than zero.
+    ///
+    /// @param recipient The address that receives the value.
+    /// @return amount The native value sent, in wei.
+    function sweepNative(address recipient) external returns (uint256 amount);
 
     /*//////////////////////////////////////////////////////////////////////////
                             CONSTANT FUNCTIONS

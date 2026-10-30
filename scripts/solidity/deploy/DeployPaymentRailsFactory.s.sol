@@ -15,6 +15,9 @@ import { BaseScript } from "../Base.s.sol";
 ///      an argument, so the deployer key never holds the role and needs no handover. Pass the
 ///      multi-sig unless an EOA is deliberately being given creation duty.
 ///
+///      Contracts that check rail provenance against this factory (AtumModuleFactory) hold its address immutably:
+///      after deploying a new factory, redeploy them against it and record both in `deployments/<chainId>.json`.
+///
 ///      Usage:
 ///        source .env && forge script scripts/solidity/deploy/DeployPaymentRailsFactory.s.sol \
 ///          --sig "run(address)" <FACTORY_OWNER> \

@@ -28,7 +28,7 @@ cd "$ROOT"
 # Base.s.sol refuses that on a non-local chain id unless told the target is a local node.
 export ALLOW_TEST_MNEMONIC=true
 
-RPC="${E2E_RPC:-http://127.0.0.1:8545}"
+RPC="${E2E_RPC:-http://127.0.0.1:${E2E_PORT:-8545}}"   # must follow the port anvil is started on
 WORKDIR="${E2E_WORKDIR:-$(mktemp -d)}"
 ANVIL_LOG="$WORKDIR/anvil.log"
 
@@ -115,6 +115,11 @@ send_reverts() { # <label> <from> <to> <sig> [args...] — asserts the tx does N
 }
 
 topic0() { cast keccak "$1"; }
+log_has() { # <contract> <event-sig> -> succeeds iff LAST_RECEIPT carries that event from that contract
+  local addr t; addr=$(echo "$1" | tr 'A-Z' 'a-z'); t=$(cast keccak "$2")
+  echo "$LAST_RECEIPT" | jq -e --arg a "$addr" --arg t "$t" \
+    'any(.logs[]; (.address|ascii_downcase)==$a and .topics[0]==$t)' >/dev/null 2>&1
+}
 log_data() { # <contract> <event-sig> -> non-indexed data of the first match in LAST_RECEIPT
   local addr t
   addr=$(echo "$1" | tr 'A-Z' 'a-z'); t=$(topic0 "$2")
@@ -298,6 +303,22 @@ send "$FUNDER" "$USDC" "transfer(address,uint256)" "$RAILS_B" "2000000000" || ba
 send "$FUNDER" "$WETH" "transfer(address,uint256)" "$RAILS_B" "1000000000000000000" || bad "fund B WETH"
 assert_eq "rails A WETH" "$(cu $RAILS_A 'getTokenBalance(address)(uint256)' $WETH)" "10000000000000000000"
 assert_eq "rails B USDC" "$(cu $RAILS_B 'getTokenBalance(address)(uint256)' $USDC)" "2000000000"
+
+step "native ETH: raw value transfers into rails B are held as-is; only the owner can sweep them out"
+WETH_B_BEFORE=$(cu $RAILS_B 'getTokenBalance(address)(uint256)' $WETH)
+send "$FUNDER" "$RAILS_B" --value 1ether || bad "raw ETH transfer to rails B"
+log_has "$RAILS_B" "NativeReceived(address,uint256)" && ok "NativeReceived emitted" || bad "no NativeReceived"
+send "$FUNDER" "$RAILS_B" --value 1ether || bad "second raw ETH transfer to rails B"
+assert_eq "rails B native balance" "$(cast balance --rpc-url "$RPC" "$RAILS_B")" "2000000000000000000"
+send_reverts "sweepNative() from the attacker reverts" "$ATTACKER" "$RAILS_B" "sweepNative(address)" "$ATTACKER"
+# A fresh address: the public-mnemonic accounts carry EIP-7702 delegations on mainnet that forward value away.
+NATIVE_RECIPIENT=$(cast wallet new --json | jq -r '.[0].address')
+send "$RAILS_OWNER" "$RAILS_B" "sweepNative(address)" "$NATIVE_RECIPIENT" || bad "sweepNative() from the owner"
+log_has "$RAILS_B" "NativeSwept(address,uint256)" && ok "NativeSwept emitted" || bad "no NativeSwept"
+assert_eq "rails B native after sweep" "$(cast balance --rpc-url "$RPC" "$RAILS_B")" "0"
+assert_eq "recipient received every ETH" "$(cast balance --rpc-url "$RPC" "$NATIVE_RECIPIENT")" "2000000000000000000"
+assert_eq "rails B WETH untouched by the sweep" "$(cu $RAILS_B 'getTokenBalance(address)(uint256)' $WETH)" "$WETH_B_BEFORE"
+send_reverts "sweepNative() with nothing left reverts" "$RAILS_OWNER" "$RAILS_B" "sweepNative(address)" "$NATIVE_RECIPIENT"
 
 # ─────────────────── oracle helpers (independent of the module's math) ───────────────────
 feed_answer() {

@@ -161,6 +161,10 @@ avaxRails.configureToken(
     true
 );
 
+// Native AVAX paid straight to avaxRails (e.g. by a settlement contract) is accepted by
+// receive() and held as-is; it is not routed through any module. Only the owner can move it:
+avaxRails.sweepNative(treasury);   // owner: the whole AVAX balance -> treasury
+
 // On Base: forward USDC to spigot
 PaymentRails baseRails = new PaymentRails(owner);
 ForwardModule forwardModule = new ForwardModule();

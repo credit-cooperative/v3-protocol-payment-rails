@@ -1,0 +1,16 @@
+PaymentRails_Receive
+├── when value is zero
+│   ├── it should succeed
+│   └── it should not emit NativeReceived
+├── when value is sent with call
+│   ├── it should increase the native balance by the value
+│   └── it should emit NativeReceived with sender and value
+├── when value is sent with transfer
+│   └── it should accept the value within the 2300 gas stipend
+├── when value is sent with send
+│   └── it should accept the value within the 2300 gas stipend
+├── when calldata is non-empty
+│   └── it should revert
+└── fuzz
+    └── when any non-zero value is sent
+        └── it should hold exactly the value

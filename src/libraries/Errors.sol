@@ -48,6 +48,16 @@ library Errors {
     /// @param amount Requested execution amount
     error PaymentRails_InsufficientBalance(uint256 balance, uint256 amount);
 
+    /// @notice Thrown when sweepNative() is called with no native balance to sweep.
+    error PaymentRails_ZeroNativeBalance();
+
+    /// @notice Thrown when sweeping native value to the zero address.
+    error PaymentRails_ZeroRecipient();
+
+    /// @notice Thrown when the sweep recipient refused the native value.
+    /// @param recipient The address that refused the value.
+    error PaymentRails_NativeTransferFailed(address recipient);
+
     /*//////////////////////////////////////////////////////////////////////////
                             DEX SWAP MODULE ERRORS
     //////////////////////////////////////////////////////////////////////////*/
