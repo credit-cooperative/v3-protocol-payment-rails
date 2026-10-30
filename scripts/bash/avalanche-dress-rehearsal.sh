@@ -292,6 +292,24 @@ send "$FUNDER" "$USDC"  "transfer(address,uint256)" "$RAILS" "500000000" || bad 
 assert_eq "rails WAVAX" "$(bal $WAVAX $RAILS)" "50000000000000000000"
 assert_eq "rails USDC"  "$(bal $USDC $RAILS)"  "500000000"
 
+step "native AVAX: raw value transfers into the rails (the settlement-contract path) are held as-is"
+send "$FUNDER" "$RAILS" --value 2ether || bad "raw AVAX transfer to the rails"
+log_has "$RAILS" "NativeReceived(address,uint256)" && ok "NativeReceived emitted" || bad "no NativeReceived"
+assert_eq "rails native balance" "$(cast balance --rpc-url "$RPC" "$RAILS")" "2000000000000000000"
+assert_eq "rails WAVAX unchanged by native receipts" "$(bal $WAVAX $RAILS)" "50000000000000000000"
+
+step "owner-only native exit: sweepNative(recipient) pays the whole AVAX balance to a fresh recipient"
+send_reverts "sweepNative() from the keeper reverts" "$KEEPER" "$RAILS" "sweepNative(address)" "$KEEPER"
+# A fresh address: the public-mnemonic accounts carry EIP-7702 delegations on some live chains.
+NATIVE_RECIPIENT=$(cast wallet new --json | jq -r '.[0].address')
+send "$OWNER" "$RAILS" "sweepNative(address)" "$NATIVE_RECIPIENT" || bad "sweepNative() from the owner"
+log_has "$RAILS" "NativeSwept(address,uint256)" && ok "NativeSwept emitted" || bad "no NativeSwept"
+assert_eq "rails native after sweep" "$(cast balance --rpc-url "$RPC" "$RAILS")" "0"
+assert_eq "recipient received every AVAX" "$(cast balance --rpc-url "$RPC" "$NATIVE_RECIPIENT")" "2000000000000000000"
+assert_eq "rails WAVAX untouched by the sweep" "$(bal $WAVAX $RAILS)" "50000000000000000000"
+assert_eq "rails USDC untouched by the sweep" "$(bal $USDC $RAILS)" "500000000"
+send_reverts "sweepNative() with nothing left reverts" "$OWNER" "$RAILS" "sweepNative(address)" "$NATIVE_RECIPIENT"
+
 # ══════════════════════════════════════════════════════════════════════════════
 phase "PHASE 6 — §7.2 smoke tests at minimal value"
 

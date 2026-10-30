@@ -33,6 +33,46 @@ contract PaymentRails is IPaymentRails, Ownable2Step, ReentrancyGuard {
     constructor(address initialOwner) Ownable(initialOwner) { }
 
     /*//////////////////////////////////////////////////////////////////////////
+                                    NATIVE VALUE
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Event-only so it fits the 2300-gas stipend of `transfer`/`send`.
+    receive() external payable {
+        // Zero value is a silent no-op, not a revert: a payer settling many recipients in one batch must not fail
+        // because this rail's share rounded to zero. Skipping the event keeps every {NativeReceived} a real deposit.
+        if (msg.value == 0) {
+            return;
+        }
+
+        // Log: Emit receipt event
+        emit NativeReceived(msg.sender, msg.value);
+    }
+
+    /// @inheritdoc IPaymentRails
+    /// @dev Emits a {NativeSwept} event.
+    function sweepNative(address recipient) external onlyOwner nonReentrant returns (uint256 amount) {
+        // Check: Recipient set
+        if (recipient == address(0)) {
+            revert Errors.PaymentRails_ZeroRecipient();
+        }
+
+        // Check: Something to sweep
+        amount = address(this).balance;
+        if (amount == 0) {
+            revert Errors.PaymentRails_ZeroNativeBalance();
+        }
+
+        // Interaction: Pay the recipient the whole native balance
+        (bool sent,) = recipient.call{ value: amount }("");
+        if (!sent) {
+            revert Errors.PaymentRails_NativeTransferFailed(recipient);
+        }
+
+        // Log: Emit sweep event
+        emit NativeSwept(recipient, amount);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
                             OWNERSHIP OVERRIDES
     //////////////////////////////////////////////////////////////////////////*/
 

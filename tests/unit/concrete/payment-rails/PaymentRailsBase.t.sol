@@ -28,6 +28,10 @@ abstract contract PaymentRailsBase is Test {
         address indexed token, string actionType, uint256 amount, string reason, address indexed executor
     );
 
+    event NativeReceived(address indexed sender, uint256 amount);
+
+    event NativeSwept(address indexed recipient, uint256 amount);
+
     /*//////////////////////////////////////////////////////////////////////////
                                     CONSTANTS
     //////////////////////////////////////////////////////////////////////////*/
@@ -47,6 +51,7 @@ abstract contract PaymentRailsBase is Test {
     address internal owner;
     address internal nonOwner;
     address internal executor;
+    address internal recipient;
 
     /*//////////////////////////////////////////////////////////////////////////
                                     SET UP
@@ -56,6 +61,7 @@ abstract contract PaymentRailsBase is Test {
         owner = makeAddr("owner");
         nonOwner = makeAddr("nonOwner");
         executor = makeAddr("executor");
+        recipient = makeAddr("recipient");
 
         vm.startPrank(owner);
         paymentRails = new PaymentRails(owner);
@@ -105,5 +111,13 @@ abstract contract PaymentRailsBase is Test {
 
     function _defaultModuleParams() internal pure returns (bytes memory) {
         return abi.encode(uint256(0));
+    }
+
+    /// @dev Sends `amount` of native value from `from` to the rails with a full-gas call.
+    function _sendNative(address from, uint256 amount) internal {
+        vm.deal(from, from.balance + amount);
+        vm.prank(from);
+        (bool ok,) = address(paymentRails).call{ value: amount }("");
+        assertTrue(ok, "native send failed");
     }
 }

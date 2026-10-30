@@ -1,0 +1,28 @@
+PaymentRails_SweepNative
+├── when caller is not the owner
+│   ├── it should revert with OwnableUnauthorizedAccount
+│   └── it should leave the native balance untouched
+├── when recipient is zero address
+│   └── it should revert with PaymentRails_ZeroRecipient
+├── given no native balance
+│   └── it should revert with PaymentRails_ZeroNativeBalance
+├── when recipient rejects
+│   ├── it should revert with PaymentRails_NativeTransferFailed
+│   └── it should leave the native balance unchanged
+├── given a native balance
+│   ├── it should send the whole native balance
+│   ├── it should return the amount sent
+│   └── it should emit NativeSwept with recipient and amount
+├── when a non-owner recipient re-enters sweepNative
+│   ├── it should reject the re-entrant call as unauthorized
+│   └── it should complete the sweep
+├── when the owner re-enters sweepNative as recipient
+│   ├── it should block the re-entrant call with the reentrancy guard
+│   └── it should complete the sweep
+├── given value arrived without calling receive
+│   └── it should include it
+├── given token balances are held
+│   └── it should leave token balances untouched
+└── fuzz
+    └── when the native balance is any non-zero amount
+        └── it should deliver exactly that amount

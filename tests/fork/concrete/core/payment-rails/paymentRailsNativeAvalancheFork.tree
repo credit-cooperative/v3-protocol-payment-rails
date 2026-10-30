@@ -1,0 +1,22 @@
+PaymentRails_NativeAvalancheFork
+├── when AVAX is sent with call
+│   ├── it should accept the value
+│   └── it should emit NativeReceived
+├── when AVAX is sent with transfer
+│   └── it should accept the value within the 2300 gas stipend
+├── when the owner sweeps
+│   ├── it should pay the whole native balance to the recipient
+│   └── it should emit NativeSwept
+├── when the owner sweeps to a contract
+│   └── it should deliver the value
+├── when a non-owner sweeps
+│   └── it should revert
+├── when the owner sweeps with nothing held
+│   └── it should revert with PaymentRails_ZeroNativeBalance
+├── when native and a WAVAX route coexist
+│   ├── it should swap the WAVAX balance to USDC through the real SwapRouter02
+│   ├── it should leave the native balance untouched by the swap
+│   └── it should leave token balances untouched by the sweep
+└── when created by the factory
+    ├── it should deploy to the predicted address
+    └── it should accept and sweep AVAX

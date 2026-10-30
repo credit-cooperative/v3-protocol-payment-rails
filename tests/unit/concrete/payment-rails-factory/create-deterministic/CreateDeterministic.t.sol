@@ -26,7 +26,7 @@ contract CreateDeterministic_Test is PaymentRailsFactoryBase {
 
     function test_WhenOwnerIsValid_ShouldSetOwner() external {
         address instance = factory.createDeterministic(owner, DEFAULT_SALT);
-        assertEq(PaymentRails(instance).owner(), owner);
+        assertEq(PaymentRails(payable(instance)).owner(), owner);
     }
 
     function test_WhenOwnerIsValid_ShouldDeployToPredictedAddress() external {
