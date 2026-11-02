@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.29;
 
-import { IPaymentRailsFactory } from "./IPaymentRailsFactory.sol";
-
 /// @title IAtumModuleFactory
 /// @notice Interface for the factory that deploys and tracks AtumModule instances.
 /// @dev AtumModule is stateful (owns pulled source balances, immutable `paymentRails` and `permit2`),
@@ -12,8 +10,9 @@ import { IPaymentRailsFactory } from "./IPaymentRailsFactory.sol";
 ///
 /// Deployment is owner-gated: only the factory owner may deploy modules, so every registry entry
 /// was authored by this organization (Certora L-01). The PaymentRails owner does not need to be
-/// the caller; the factory owner deploys on their behalf. `paymentRails` must be an instance
-/// {paymentRailsFactory} deployed, which catches a wrong address but is not an authorization.
+/// the caller; the factory owner deploys on their behalf. `paymentRails` only has to be a contract:
+/// the factory is not bound to any PaymentRailsFactory, so which rails a module serves is the
+/// owner's call, and one factory serves rails from every PaymentRailsFactory version.
 ///
 /// Registration is provenance, not authorization: a module only becomes live once the PaymentRails
 /// owner points a token config at it via `configureToken`. Verify `module.owner()`,
@@ -50,7 +49,6 @@ interface IAtumModuleFactory {
     /// - `paymentRails` must not be `address(0)`
     /// - `keeper` must not be `address(0)`
     /// - `paymentRails` must be a contract
-    /// - `paymentRails` must be an instance deployed by {paymentRailsFactory}
     ///
     /// @param owner The initial owner of the AtumModule (can rotate the keeper and pause). May differ
     /// from the PaymentRails owner.
@@ -69,7 +67,6 @@ interface IAtumModuleFactory {
     /// - `paymentRails` must not be `address(0)`
     /// - `keeper` must not be `address(0)`
     /// - `paymentRails` must be a contract
-    /// - `paymentRails` must be an instance deployed by {paymentRailsFactory}
     /// - The `(msg.sender, owner, paymentRails, keeper, salt)` combination must not have been used
     ///   before. The caller is part of the key because the CREATE2 salt is bound to it
     ///   (Certora I-04), so the same salt used by two deployers yields two distinct addresses.
@@ -95,10 +92,6 @@ interface IAtumModuleFactory {
     /// @notice The Permit2 contract every deployed module is wired to.
     /// @return The Permit2 address.
     function permit2() external view returns (address);
-
-    /// @notice PaymentRailsFactory whose deployment list is the record of real PaymentRails.
-    /// @return The PaymentRailsFactory address.
-    function paymentRailsFactory() external view returns (IPaymentRailsFactory);
 
     /// @notice Predict the address of a deterministic deployment.
     /// @param deployer The address that will call {createDeterministic}. The salt is bound to it

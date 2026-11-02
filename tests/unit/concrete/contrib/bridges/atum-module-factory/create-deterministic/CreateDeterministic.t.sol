@@ -4,6 +4,7 @@ pragma solidity ^0.8.29;
 import { AtumModuleFactoryBase } from "../AtumModuleFactoryBase.t.sol";
 import { AtumModule } from "../../../../../../../src/modules/contrib/bridges/AtumModule.sol";
 import { Errors } from "../../../../../../../src/libraries/Errors.sol";
+import { PaymentRails } from "../../../../../../../src/core/PaymentRails.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CreateDeterministic_AtumModuleFactory_Test is AtumModuleFactoryBase {
@@ -40,6 +41,17 @@ contract CreateDeterministic_AtumModuleFactory_Test is AtumModuleFactoryBase {
     function test_WhenParamsAreValid_ShouldSetKeeper() external {
         address module = factory.createDeterministic(owner, paymentRails, keeper, DEFAULT_SALT);
         assertEq(AtumModule(module).keeper(), keeper);
+    }
+
+    /// Mirror of the `create()` test: the deterministic path is not bound to a PaymentRailsFactory
+    /// either, so a PaymentRails deployed anywhere is accepted.
+    function test_CreateDeterministic_AcceptsPaymentRailsDeployedOutsideThePaymentRailsFactory() external {
+        address direct = address(new PaymentRails(address(this)));
+        address module = factory.createDeterministic(owner, direct, keeper, DEFAULT_SALT);
+
+        assertTrue(factory.isDeployedModule(module));
+        assertEq(AtumModule(module).paymentRails(), direct);
+        assertEq(module, factory.predictDeterministicAddress(address(this), owner, direct, keeper, DEFAULT_SALT));
     }
 
     function test_WhenParamsAreValid_ShouldDeployToPredictedAddress() external {
@@ -90,10 +102,9 @@ contract CreateDeterministic_AtumModuleFactory_Test is AtumModuleFactoryBase {
         assertTrue(module1 != module2);
     }
 
-    /// @dev The PaymentRails address is not fuzzed: it must be an instance on the PaymentRailsFactory
-    ///      list, so an arbitrary address cannot be used. Owner,
-    ///      keeper and salt stay fuzzed, which is what this test is actually about -- that
-    ///      prediction tracks deployment across inputs.
+    /// @dev The PaymentRails address is not fuzzed: it must have code, so an arbitrary address
+    ///      cannot be used. Owner, keeper and salt stay fuzzed, which is what this test is actually
+    ///      about -- that prediction tracks deployment across inputs.
     function testFuzz_PredictedAddressMatchesActual(address fuzzOwner, address fuzzKeeper, bytes32 fuzzSalt) external {
         vm.assume(fuzzOwner != address(0));
         vm.assume(fuzzKeeper != address(0));

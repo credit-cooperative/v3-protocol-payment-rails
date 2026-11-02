@@ -8,11 +8,6 @@ import { PaymentRails } from "../../../../../../../src/core/PaymentRails.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
-/// @dev A contract exposing `owner()` like a PaymentRails would. Not on the PaymentRailsFactory list.
-contract OwnerReturningLookalike is Ownable {
-    constructor(address initialOwner) Ownable(initialOwner) { }
-}
-
 contract Create_AtumModuleFactory_Test is AtumModuleFactoryBase {
     /// L-01. Creation was permissionless, so anyone could deploy a genuine factory module naming
     /// a victim's PaymentRails -- making themselves owner and keeper -- and have it recorded
@@ -171,26 +166,24 @@ contract Create_AtumModuleFactory_Test is AtumModuleFactoryBase {
         assertEq(factory.getModulesForPaymentRails(foreignPaymentRails).length, 1);
     }
 
-    /// An address with no code fails the code-length check, before the factory list is consulted.
+    /// An address with no code fails the code-length check. Creation is owner-gated, so this only
+    /// catches the owner passing an EOA or a typo; it is not an authorization.
     function test_Create_RevertsWhenPaymentRailsHasNoCode() external {
         address eoa = makeAddr("notAContract");
         vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_PaymentRailsNotContract.selector, eoa));
         factory.create(owner, eoa, keeper);
     }
 
-    /// Even from the factory owner, a contract that looks like a PaymentRails fails unless
-    /// PaymentRailsFactory deployed it. Copying functions is not enough to get onto that list.
-    function test_Create_RevertsWhenPaymentRailsIsALookalike() external {
-        address lookalike = address(new OwnerReturningLookalike(address(this)));
-        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_UnknownPaymentRails.selector, lookalike));
-        factory.create(owner, lookalike, keeper);
-    }
-
-    /// A real PaymentRails deployed outside the factory is rejected. That is the cost of trusting
-    /// the list.
-    function test_Create_RevertsWhenPaymentRailsWasNotDeployedByTheFactory() external {
+    /// The factory is not bound to a PaymentRailsFactory, so a PaymentRails deployed anywhere is
+    /// accepted. This is what lets one AtumModuleFactory serve rails from every PaymentRailsFactory
+    /// version without being redeployed alongside each one. (Previously this exact case reverted
+    /// with AtumModuleFactory_UnknownPaymentRails.)
+    function test_Create_AcceptsPaymentRailsDeployedOutsideThePaymentRailsFactory() external {
         address direct = address(new PaymentRails(address(this)));
-        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_UnknownPaymentRails.selector, direct));
-        factory.create(owner, direct, keeper);
+        address module = factory.create(owner, direct, keeper);
+
+        assertTrue(factory.isDeployedModule(module));
+        assertEq(AtumModule(module).paymentRails(), direct);
+        assertEq(factory.getModulesForPaymentRails(direct).length, 1);
     }
 }

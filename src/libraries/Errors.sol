@@ -243,13 +243,6 @@ library Errors {
     /// @param permit2 The address supplied as Permit2.
     error AtumModuleFactory_Permit2NotContract(address permit2);
 
-    /// @notice Thrown when the factory is constructed with a zero PaymentRailsFactory address.
-    error AtumModuleFactory_ZeroPaymentRailsFactory();
-
-    /// @notice Thrown when the factory is constructed with a PaymentRailsFactory address that has no code.
-    /// @param paymentRailsFactory The address supplied as the PaymentRailsFactory.
-    error AtumModuleFactory_PaymentRailsFactoryNotContract(address paymentRailsFactory);
-
     /// @notice Thrown when a module is created with a zero owner address.
     error AtumModuleFactory_ZeroOwner();
 
@@ -263,13 +256,8 @@ library Errors {
     error AtumModuleFactory_OwnershipCannotBeRenounced();
 
     /// @notice Thrown when the supplied PaymentRails address has no code.
-    /// @dev Querying the PaymentRailsFactory list for an EOA would only report it unknown; fail
-    ///      with a named error instead.
+    /// @dev Creation is owner-gated, so this is a wiring check on what the owner passes, not an
+    ///      authorization: an undelegated EOA or a typo fails by name instead of yielding a module
+    ///      that nothing can ever call. An EIP-7702-delegated EOA has code and passes.
     error AtumModuleFactory_PaymentRailsNotContract(address paymentRails);
-
-    /// @notice Thrown when `paymentRails` was not deployed by the configured PaymentRailsFactory.
-    /// @dev A lookalike contract, and a PaymentRails deployed outside the factory, fail here. An
-    ///      address with no code fails earlier, at `PaymentRailsNotContract`. Membership is
-    ///      owner-gated on that factory, so copying function names is not enough to get onto the list.
-    error AtumModuleFactory_UnknownPaymentRails(address paymentRails);
 }

@@ -204,17 +204,17 @@ Documented on `IAtumModule.stagedRoute` and the module header, and pinned by `te
 
 > **Raised with the auditor and closed.** We asked whether an `onlyOwner clearStagedRoute(address token)` emitting an event would be accepted, so that a deliberate redirect is explicit and logged rather than requiring a pause and a full sweep. Declined, and we agree with the reasoning: because refunds can land unexpectedly and be picked up by `syncAllowance`, clearing the record would not address the underlying behaviour. The finding is recorded as acknowledged with both halves: a config change cannot redirect a balance this module currently holds; a later refund can be paid to the new route, and that is accepted. No function was added.
 
-### 3. `_checkPaymentRailsOwner` does not verify that `paymentRails` is a PaymentRails — fixed, then superseded by owner gating
+### 3. `_checkPaymentRailsOwner` does not verify that `paymentRails` is a PaymentRails — fixed, then superseded by owner gating, then removed
 
 The conclusion was correct, and the mechanism needed one correction: `Ownable(paymentRails).owner()` is called by the factory, so a contract whose `owner()` returns `msg.sender` does not satisfy the check. The shape that works is a contract returning a hardcoded caller-controlled address.
 
-Shape probes stay out. ERC-165, `getTokenConfig`, and any marker function are forgeable by the contract being probed. The check that is not forgeable is membership in PaymentRailsFactory. That factory records every PaymentRails it deploys, and only its owner can add to the list. `AtumModuleFactory` reverts with `AtumModuleFactory_PaymentRailsNotContract` when `paymentRails` has no code, then with `AtumModuleFactory_UnknownPaymentRails` unless `paymentRailsFactory.isDeployedInstance(paymentRails)` is true.
+Shape probes stay out. ERC-165, `getTokenConfig`, and any marker function are forgeable by the contract being probed. The check that was not forgeable was membership in PaymentRailsFactory: that factory records every PaymentRails it deploys, and only its owner can add to the list. `AtumModuleFactory` reverted with `AtumModuleFactory_PaymentRailsNotContract` when `paymentRails` had no code, then with `AtumModuleFactory_UnknownPaymentRails` unless `paymentRailsFactory.isDeployedInstance(paymentRails)` was true.
 
-**Since superseded.** L-01 is now answered by owner-gating the factory, so `owner()` is no longer read and this check no longer has to make that answer trustworthy. The membership check is kept as a wiring check on what the factory owner passes. Unlike a code-length check, which a lookalike or an EIP-7702-delegated EOA passes, it cannot be satisfied by anything PaymentRailsFactory did not deploy.
+**Since superseded.** L-01 is now answered by owner-gating the factory, so `owner()` is no longer read and this check no longer has to make that answer trustworthy. The membership check was kept for a time as a wiring check on what the factory owner passes: unlike a code-length check, which a lookalike or an EIP-7702-delegated EOA passes, it could not be satisfied by anything PaymentRailsFactory did not deploy. A PaymentRails deployed outside the factory was rejected. That was the cost of trusting the list.
 
-A PaymentRails deployed outside the factory is rejected. That is the cost of trusting the list. `new AtumModule(...)` still bypasses this factory, so the module registry remains informational.
+**Since removed.** With creation owner-gated, the membership check only protected the factory owner from their own input, and it bound `AtumModuleFactory` immutably to one `PaymentRailsFactory`. Every new `PaymentRailsFactory` deployment (a new PaymentRails bytecode means a new factory, see SECURITY.md) therefore forced a redeployment of `AtumModuleFactory` before any module could be created for the new rails. The check, the `paymentRailsFactory` immutable and constructor argument, and `AtumModuleFactory_UnknownPaymentRails` are removed. `paymentRails` need only have code (`AtumModuleFactory_PaymentRailsNotContract`). Authorization is unchanged: creation is owner-gated, and a module is only live once the PaymentRails owner wires it via `configureToken`. `new AtumModule(...)` still bypasses this factory, so the module registry remains informational.
 
-Pinned by `test_Create_RevertsWhenPaymentRailsIsALookalike` and `test_Create_RevertsWhenPaymentRailsWasNotDeployedByTheFactory`.
+Pinned by `test_Create_RevertsWhenPaymentRailsHasNoCode` and `test_Create_AcceptsPaymentRailsDeployedOutsideThePaymentRailsFactory`.
 
 ---
 

@@ -12,17 +12,17 @@ import { Errors } from "../../../../../../../src/libraries/Errors.sol";
 contract Ownership_AtumModuleFactory_Test is AtumModuleFactoryBase {
     function test_RevertWhen_InitialOwnerIsZeroAddress() external {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
-        new AtumModuleFactory(address(0), address(permit2), railsFactory);
+        new AtumModuleFactory(address(0), address(permit2));
     }
 
     function test_WhenInitialOwnerIsValid_SetsOwner() external {
-        AtumModuleFactory f = new AtumModuleFactory(owner, address(permit2), railsFactory);
+        AtumModuleFactory f = new AtumModuleFactory(owner, address(permit2));
         assertEq(f.owner(), owner, "owner");
     }
 
     /// @dev The owner is an argument, not msg.sender, so a deployer key never holds the role.
     function test_WhenDeployed_DeployerIsNotOwner() external {
-        AtumModuleFactory f = new AtumModuleFactory(owner, address(permit2), railsFactory);
+        AtumModuleFactory f = new AtumModuleFactory(owner, address(permit2));
         assertNotEq(f.owner(), address(this), "deployer must not be owner");
     }
 
