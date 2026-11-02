@@ -11,15 +11,11 @@ AtumModuleFactory_Create
 │   └── it should revert with AtumModuleFactory_ZeroKeeper
 ├── when paymentRails has no code
 │   └── it should revert with AtumModuleFactory_PaymentRailsNotContract
-├── when paymentRails was not deployed by PaymentRailsFactory
-│   ├── when it is a lookalike exposing owner()
-│   │   └── it should revert with AtumModuleFactory_UnknownPaymentRails
-│   └── when it is a real PaymentRails deployed directly
-│       └── it should revert with AtumModuleFactory_UnknownPaymentRails
 └── when the caller is the factory owner and params are valid
     ├── it should deploy a new AtumModule contract
     ├── it should set the owner on the deployed module
     ├── it should not require the caller to own the PaymentRails
+    ├── it should not require the PaymentRails to come from a PaymentRailsFactory
     ├── it should wire the module to the PaymentRails
     ├── it should set the keeper on the deployed module
     ├── it should wire the module to the factory permit2

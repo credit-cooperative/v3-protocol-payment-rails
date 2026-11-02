@@ -13,6 +13,7 @@ AtumModuleFactory_CreateDeterministic
     ├── it should deploy a new AtumModule contract
     ├── it should set the owner on the deployed module
     ├── it should wire the module to the PaymentRails
+    ├── it should not require the PaymentRails to come from a PaymentRailsFactory
     ├── it should set the keeper on the deployed module
     ├── it should deploy to the predicted address
     ├── it should register the module in the factory

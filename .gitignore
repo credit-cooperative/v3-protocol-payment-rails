@@ -24,3 +24,8 @@ lcov.info
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# solidity-auditor (pashov/skills) scan state and loose report copies. Curated reports live in audits/ai/.
+.solidity-auditor/
+.audit-*/
+*-pashov-ai-audit-report-*.md

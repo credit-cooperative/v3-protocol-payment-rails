@@ -3,7 +3,6 @@ pragma solidity >=0.8.29 <0.9.0;
 
 import { console2 } from "forge-std/src/Script.sol";
 import { AtumModuleFactory } from "../../../src/modules/contrib/bridges/AtumModuleFactory.sol";
-import { IPaymentRailsFactory } from "../../../src/interfaces/IPaymentRailsFactory.sol";
 
 import { BaseScript } from "../Base.s.sol";
 
@@ -13,9 +12,11 @@ import { BaseScript } from "../Base.s.sol";
 ///         a dedicated AtumModule per PaymentRails instance (e.g. per borrower).
 ///
 ///      `owner` is the only address allowed to call create()/createDeterministic(); pass the multi-sig.
+///      The factory is not bound to a PaymentRailsFactory, so it does not need redeploying when
+///      the rails factory is.
 ///
 ///      Usage:
-///        PAYMENT_RAILS_FACTORY=<factory> source .env && \
+///        source .env && \
 ///          forge script scripts/solidity/deploy/DeployAtumModuleFactory.s.sol \
 ///          --sig "run(address)" <FACTORY_OWNER> \
 ///          --rpc-url $AVALANCHE_RPC_URL --broadcast -vvvv
@@ -24,8 +25,7 @@ contract DeployAtumModuleFactory is BaseScript {
     address internal constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
 
     function run(address _owner) public broadcast returns (AtumModuleFactory factory) {
-        address railsFactory = vm.envAddress("PAYMENT_RAILS_FACTORY");
-        factory = new AtumModuleFactory(_owner, PERMIT2, IPaymentRailsFactory(railsFactory));
+        factory = new AtumModuleFactory(_owner, PERMIT2);
 
         console2.log("=============================================================");
         console2.log("  DeployAtumModuleFactory - Complete");
@@ -33,7 +33,6 @@ contract DeployAtumModuleFactory is BaseScript {
         console2.log("AtumModuleFactory:", address(factory));
         console2.log("Factory owner:    ", factory.owner());
         console2.log("Permit2:          ", PERMIT2);
-        console2.log("PaymentRailsFactory:", railsFactory);
         console2.log("");
         console2.log("Save to .env:");
         console2.log("  ATUM_MODULE_FACTORY_ADDRESS=%s", vm.toString(address(factory)));
