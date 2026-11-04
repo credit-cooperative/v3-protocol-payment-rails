@@ -29,12 +29,18 @@ cd "$ROOT"
 
 # Force the mnemonic path in BaseScript so the broadcaster is a funded anvil account. The fork
 # reports Avalanche's chain id, so tell Base.s.sol the target is a local node.
-unset ETH_FROM
+# forge re-reads the repo .env on start-up, and dotenv only fills variables that are unset, so an
+# `unset ETH_FROM` is undone whenever .env defines ETH_FROM. Base.s.sol treats the zero address as
+# "no ETH_FROM", so pin it to zero instead.
+export ETH_FROM=0x0000000000000000000000000000000000000000
 export ALLOW_TEST_MNEMONIC=true
 
 RPC="${DR_RPC:-http://127.0.0.1:${DR_PORT:-8546}}"
 CHAIN_ID=43114
 WORKDIR="${DR_WORKDIR:-$(mktemp -d)}"
+# Keep the fork's broadcast files out of the repo's broadcast/ dir: the registry extractor reads
+# broadcast/<script>/43114/run-latest.json and must never see anvil receipts.
+export FOUNDRY_BROADCAST="$WORKDIR/broadcast"
 ANVIL_LOG="$WORKDIR/anvil.log"
 
 # ───────────────────────────── Avalanche C-Chain addresses ─────────────────────────────
@@ -126,7 +132,7 @@ deploy_script() { local path="$1"; shift
   fi
   local addr
   addr=$(jq -r 'first(.transactions[] | select(.transactionType=="CREATE") | .contractAddress)' \
-    "broadcast/$name/$CHAIN_ID/run-latest.json" 2>/dev/null)
+    "$FOUNDRY_BROADCAST/$name/$CHAIN_ID/run-latest.json" 2>/dev/null)
   [[ -n "$addr" && "$addr" != "null" ]] && cast to-check-sum-address "$addr"
 }
 
