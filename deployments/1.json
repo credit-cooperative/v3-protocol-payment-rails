@@ -1,0 +1,80 @@
+{
+  "chain": "ethereum",
+  "chainId": 1,
+  "contracts": {
+    "AtumModuleFactory": {
+      "address": "0xe887e007e8eeee4cf2e57aa470bca718579ff873",
+      "blockNumber": 26343919,
+      "commit": "7ef5930",
+      "deployer": "0xf44b95991cadd73ed769454a03b3820997f00873",
+      "timestamp": "2026-11-04T20:44:28.320Z",
+      "txHash": "0x0ca485fd15da8ebc2266715dc110db7273b55d017f50e1dbda8351e21417e29d",
+      "version": "1.0.0",
+      "constructorArgs": [
+        "0xeb0566b1EF38B95da2ed631eBB8114f3ac7b9a8a",
+        "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+      ]
+    },
+    "CCTPBridgeModule": {
+      "address": "0x2a18b65bd688c3905884b947d6374a96986016b5",
+      "blockNumber": 26343923,
+      "commit": "7ef5930",
+      "deployer": "0xf44b95991cadd73ed769454a03b3820997f00873",
+      "timestamp": "2026-11-04T20:45:30.922Z",
+      "txHash": "0x6365565e06729882757d3c34221454ad9a5563e33b37fd3a24f11ea70d744775",
+      "version": "1.0.0",
+      "constructorArgs": [
+        "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+        "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+      ]
+    },
+    "CowSwapModuleFactory": {
+      "address": "0x86ec864faf7e1882a2d84522b10d8a2149a897f9",
+      "blockNumber": 26343932,
+      "commit": "7ef5930",
+      "deployer": "0xf44b95991cadd73ed769454a03b3820997f00873",
+      "timestamp": "2026-11-04T20:47:25.117Z",
+      "txHash": "0x62b839be3c2394a4b899d3289a66f311e19d3aa7ebbf6238a05fa3558a7c64cb",
+      "version": "1.0.0",
+      "constructorArgs": [
+        "0xeb0566b1EF38B95da2ed631eBB8114f3ac7b9a8a",
+        "0x9008D19f58AAbD9eD0D60971565AA8510560ab41",
+        "0x0000000000000000000000000000000000000000",
+        "0"
+      ]
+    },
+    "DexSwapModule": {
+      "address": "0xdf412f95ce774f5876d8af02432028efae1ff110",
+      "blockNumber": 26343928,
+      "commit": "7ef5930",
+      "deployer": "0xf44b95991cadd73ed769454a03b3820997f00873",
+      "timestamp": "2026-11-04T20:46:16.330Z",
+      "txHash": "0x084bd354ac5aba9d68645dd236fe2d8f5a55847eca9f62440892802b0e613aa3",
+      "version": "1.0.0",
+      "constructorArgs": [
+        "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+        "0x0000000000000000000000000000000000000000",
+        "0"
+      ]
+    },
+    "ForwardModule": {
+      "address": "0x402339321e8dc55d90c0f3e32b915a122209300d",
+      "blockNumber": 26343911,
+      "commit": "7ef5930",
+      "deployer": "0xf44b95991cadd73ed769454a03b3820997f00873",
+      "timestamp": "2026-11-04T20:42:42.948Z",
+      "txHash": "0x264c57bc98017b6ea047fb48905224bc78c1b080d41a29cd7a58d424e09ce60b",
+      "version": "1.0.0"
+    },
+    "PaymentRailsFactory": {
+      "address": "0x209c2aadc26730a1a8c4c7b06b95d666915edbbd",
+      "blockNumber": 26343914,
+      "commit": "7ef5930",
+      "deployer": "0xf44b95991cadd73ed769454a03b3820997f00873",
+      "timestamp": "2026-11-04T20:43:33.271Z",
+      "txHash": "0x4f2eaea1dd91f0ccd95febad6954f8b889e0f362077ec01c9156c13b35c528a2",
+      "version": "1.0.0",
+      "constructorArgs": ["0xeb0566b1EF38B95da2ed631eBB8114f3ac7b9a8a"]
+    }
+  }
+}
