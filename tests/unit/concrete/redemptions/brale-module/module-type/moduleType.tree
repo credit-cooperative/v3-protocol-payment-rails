@@ -1,0 +1,4 @@
+BraleModule_ModuleType
+└── when called
+    ├── it should return BRALE_REDEMPTION
+    └── it should not be empty

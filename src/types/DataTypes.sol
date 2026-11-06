@@ -141,4 +141,19 @@ library DataTypes {
         string destinationAccount;
         string destinationAsset;
     }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                              BRALE MODULE TYPES
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Owner-configured parameters for {BraleModule}, stored as PaymentRails `moduleParams`.
+    /// @param depositAddress Brale custodial (internal) wallet address for this chain; receives the token.
+    /// @param outputToken USDC address on this chain that Brale delivers back to the PaymentRails.
+    /// @param minAmount Minimum amount per redemption, in input-token base units. Set at or above Brale's
+    ///        minimum transfer; 0 is rejected.
+    struct BraleRedemptionParams {
+        address depositAddress;
+        address outputToken;
+        uint256 minAmount;
+    }
 }

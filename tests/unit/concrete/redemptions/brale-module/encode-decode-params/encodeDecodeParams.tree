@@ -1,0 +1,6 @@
+BraleModule_EncodeDecodeParams
+├── when params are encoded and decoded
+│   ├── it should round-trip
+│   └── it should round-trip for any addresses (fuzz)
+└── when encoded bytes are too short
+    └── it should revert on decode

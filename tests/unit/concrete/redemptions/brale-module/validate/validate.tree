@@ -1,0 +1,33 @@
+BraleModule_Validate
+├── when amount is zero
+│   └── it should return false with "Zero amount"
+├── when params are shorter than 96 bytes
+│   └── it should return false with "Invalid params encoding"
+├── when params use the old two-field encoding
+│   └── it should return false with "Invalid params encoding"
+├── when params have dirty address bits
+│   └── it should return false with "Invalid params encoding"
+├── when depositAddress is zero
+│   └── it should return false with "Zero deposit address"
+├── when depositAddress is the PaymentRails
+│   └── it should return false with "Deposit address is PaymentRails"
+├── when depositAddress is the module
+│   └── it should return false with "Deposit address is module"
+├── when depositAddress is the input token
+│   └── it should return false with "Deposit address is input token"
+├── when depositAddress is the output token
+│   └── it should return false with "Deposit address is output token"
+├── when outputToken is zero
+│   └── it should return false with "Zero output token"
+├── when outputToken equals the input token
+│   └── it should return false with "Output token equals input token"
+├── when minAmount is zero
+│   └── it should return false with "Zero minimum amount"
+├── when amount is below minAmount
+│   └── it should return false with "Below minimum redemption"
+├── when amount equals minAmount
+│   └── it should return true
+└── when params are valid
+    ├── it should return true with an empty reason
+    ├── it should not check the PaymentRails balance
+    └── it should be callable by any address

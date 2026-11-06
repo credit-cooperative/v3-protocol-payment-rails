@@ -1,0 +1,10 @@
+BraleModule_ReturnToPaymentRails
+├── when the caller is not the owner
+│   └── it should revert with OwnableUnauthorizedAccount
+├── when the module balance is zero
+│   └── it should revert with BraleModule_NothingToReturn
+└── when the module holds a stray balance
+    ├── it should send the full balance to the PaymentRails
+    ├── it should emit TokensReturned
+    ├── it should return the amount
+    └── it should never send to the owner

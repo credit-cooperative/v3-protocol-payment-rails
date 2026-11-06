@@ -12,6 +12,7 @@ out
 out-*
 repomix
 typechain-types
+.tmp
 
 # files
 *.env

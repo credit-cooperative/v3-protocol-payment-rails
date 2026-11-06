@@ -4,12 +4,14 @@ This file tracks every module shipped in this repo, its tier, maintainer, and au
 
 ## First-party modules
 
-| Path                                       | Tier        | Maintainer                    | Audit Status | Notes                                       |
-| ------------------------------------------ | ----------- | ----------------------------- | ------------ | ------------------------------------------- |
-| `src/modules/forwards/ForwardModule.sol`   | first-party | @credit-cooperative/core-team | unaudited    | 1:1 transfer to configured recipient        |
-| `src/modules/swaps/DexSwapModule.sol`      | first-party | @credit-cooperative/core-team | unaudited    | Atomic swap via whitelisted Uniswap routers |
-| `src/modules/swaps/CowSwapModule.sol`      | first-party | @credit-cooperative/core-team | unaudited    | CoW Protocol order book integration         |
-| `src/modules/bridges/CCTPBridgeModule.sol` | first-party | @credit-cooperative/core-team | unaudited    | Circle CCTP integration                     |
+| Path                                             | Tier        | Maintainer                    | Audit Status | Notes                                                                                          |
+| ------------------------------------------------ | ----------- | ----------------------------- | ------------ | ---------------------------------------------------------------------------------------------- |
+| `src/modules/forwards/ForwardModule.sol`         | first-party | @credit-cooperative/core-team | unaudited    | 1:1 transfer to configured recipient                                                           |
+| `src/modules/swaps/DexSwapModule.sol`            | first-party | @credit-cooperative/core-team | unaudited    | Atomic swap via whitelisted Uniswap routers                                                    |
+| `src/modules/swaps/CowSwapModule.sol`            | first-party | @credit-cooperative/core-team | unaudited    | CoW Protocol order book integration                                                            |
+| `src/modules/bridges/CCTPBridgeModule.sol`       | first-party | @credit-cooperative/core-team | unaudited    | Circle CCTP integration                                                                        |
+| `src/modules/redemptions/BraleModule.sol`        | first-party | @credit-cooperative/core-team | unaudited    | Brale stablecoin -> USDC redemption (async; off-chain spec: src/modules/redemptions/README.md) |
+| `src/modules/redemptions/BraleModuleFactory.sol` | first-party | @credit-cooperative/core-team | unaudited    | Per-PaymentRails factory for BraleModule (CREATE/CREATE2 + registry)                           |
 
 ## Community modules
 

@@ -1,0 +1,20 @@
+BraleModule_EstimateOutput
+├── when params are invalid
+│   └── it should return zero and the input token
+├── when input and output have the same decimals
+│   └── it should return the amount and the output token
+├── when output has fewer decimals
+│   ├── it should divide by the decimal difference
+│   └── it should truncate (fuzz)
+├── when output has more decimals
+│   ├── it should multiply by the decimal difference
+│   └── when the multiplication overflows
+│       └── it should return zero and the output token
+├── when the output token has no code
+│   └── it should return zero and the output token
+├── when the output token returns a non-uint8 decimals value
+│   └── it should return zero and the output token
+├── when the output token returns huge returndata for decimals
+│   └── it should read only the first word
+└── when the output token has no decimals function
+    └── it should return zero and the output token
