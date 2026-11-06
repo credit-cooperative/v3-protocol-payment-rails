@@ -1,0 +1,9 @@
+BraleModule_Constructor
+├── when paymentRails is zero address
+│   └── it should revert with BraleModule_ZeroPaymentRails
+├── when owner is zero address
+│   └── it should revert with OwnableInvalidOwner
+└── when params are valid
+    ├── it should set paymentRails
+    ├── it should set the owner
+    └── it should start redemptionNonce at zero

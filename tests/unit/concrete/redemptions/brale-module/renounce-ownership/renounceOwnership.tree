@@ -1,0 +1,7 @@
+BraleModule_RenounceOwnership
+├── when the caller is the owner
+│   └── it should revert with BraleModule_OwnershipCannotBeRenounced
+├── when the caller is not the owner
+│   └── it should revert with BraleModule_OwnershipCannotBeRenounced
+└── when ownership is transferred in two steps
+    └── it should still work after a failed renounce

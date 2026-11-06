@@ -1,0 +1,11 @@
+BraleModuleFactory_Ownership
+├── when renounceOwnership is called
+│   └── it should revert with BraleModuleFactory_OwnershipCannotBeRenounced
+├── when the deployer passes a different initial owner
+│   └── it should not make the deployer the owner
+└── when ownership is transferred
+    ├── it should not change the owner until accepted
+    ├── it should set and then clear the pending owner
+    ├── it should let the new owner create modules
+    ├── it should still reject a non-owner caller
+    └── it should reject the previous owner

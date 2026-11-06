@@ -1,0 +1,57 @@
+BraleModule_Execute
+├── when the caller is not the PaymentRails
+│   └── it should revert with BraleModule_NotPaymentRails
+├── when amount is zero
+│   └── it should return a failed result with "Zero amount"
+├── when params are shorter than 96 bytes
+│   └── it should return a failed result with "Invalid params encoding"
+├── when params use the old two-field encoding
+│   └── it should return a failed result with "Invalid params encoding"
+├── when minAmount is zero
+│   └── it should return a failed result with "Zero minimum amount"
+├── when amount is below minAmount
+│   └── it should return a failed result with "Below minimum redemption"
+├── when amount equals minAmount
+│   └── it should succeed and move the amount
+├── when params have dirty address bits
+│   └── it should return a failed result with "Invalid params encoding"
+├── when depositAddress is zero
+│   └── it should return a failed result with "Zero deposit address"
+├── when depositAddress is the PaymentRails
+│   └── it should return a failed result with "Deposit address is PaymentRails"
+├── when depositAddress is the module
+│   └── it should return a failed result with "Deposit address is module"
+├── when depositAddress is the input token
+│   └── it should return a failed result with "Deposit address is input token"
+├── when depositAddress is the output token
+│   └── it should return a failed result with "Deposit address is output token"
+├── when outputToken is zero
+│   └── it should return a failed result with "Zero output token"
+├── when outputToken equals the input token
+│   └── it should return a failed result with "Output token equals input token"
+├── when params are invalid
+│   ├── it should leave the nonce unchanged
+│   ├── it should not move tokens
+│   └── it should not emit RedemptionInitiated
+├── when the token transfer returns false
+│   ├── it should return a failed result with "Token transfer failed"
+│   └── it should restore the nonce
+├── when the token transfer reverts
+│   ├── it should return a failed result with "Token transfer failed"
+│   └── it should restore the nonce
+├── when the token charges a recipient fee
+│   └── it should revert with BraleModule_UnexpectedDeliveredAmount
+├── when the token charges a sender fee
+│   └── it should revert with BraleModule_UnexpectedDebitedAmount
+├── when the token reenters the PaymentRails during transfer
+│   ├── it should return a failed result
+│   └── it should leave the nonce unchanged
+└── when params are valid
+    ├── it should deliver exactly the amount to the deposit address
+    ├── it should debit exactly the amount from the PaymentRails
+    ├── it should leave the module balance at zero
+    ├── it should emit RedemptionInitiated with the expected id
+    ├── it should increment the nonce
+    ├── it should return a success result carrying the redemption id
+    ├── it should produce distinct ids for consecutive calls
+    └── it should move the exact amount for any amount (fuzz)

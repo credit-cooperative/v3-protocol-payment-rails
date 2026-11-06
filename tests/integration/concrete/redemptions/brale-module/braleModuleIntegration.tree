@@ -1,0 +1,25 @@
+BraleModuleIntegration
+├── when a keeper calls executeAction
+│   ├── it should return true
+│   ├── it should emit ActionExecuted and RedemptionInitiated
+│   ├── it should credit the deposit address with the amount
+│   ├── it should leave the rails allowance to the module at zero
+│   └── it should leave the module balance at zero
+├── when executeAction is called repeatedly
+│   └── it should use nonces 0, 1, 2 with unique ids
+├── when the token charges a recipient fee
+│   ├── it should return false with ActionFailed "Module execution reverted"
+│   └── it should leave balances and nonce unchanged
+├── when the token charges a sender fee
+│   └── it should return false with ActionFailed "Module execution reverted"
+├── when the deposit address is the PaymentRails
+│   └── it should emit ActionFailed "Deposit address is PaymentRails"
+├── when previewExecution is called
+│   └── it should return the 1:1 estimate and the output token
+├── when the rails owner reconfigures the deposit address
+│   └── it should send the next redemption to the new address
+├── when an EOA calls module.execute directly
+│   └── it should revert with BraleModule_NotPaymentRails
+└── when two borrowers each have their own rails and module
+    ├── it should credit only each borrower's own deposit address
+    └── it should produce different ids for the same nonce

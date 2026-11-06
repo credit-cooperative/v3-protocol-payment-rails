@@ -1,0 +1,24 @@
+BraleModuleFactory_Create
+├── when the caller is not the factory owner
+│   ├── it should revert with OwnableUnauthorizedAccount
+│   ├── it should revert even for the PaymentRails owner
+│   └── it should leave the registry empty
+├── when owner is zero address
+│   └── it should revert with BraleModuleFactory_ZeroOwner
+├── when paymentRails is zero address
+│   └── it should revert with BraleModuleFactory_ZeroPaymentRails
+├── when paymentRails has no code
+│   └── it should revert with BraleModuleFactory_PaymentRailsNotContract
+└── when the caller is the factory owner and params are valid
+    ├── it should deploy a new BraleModule contract
+    ├── it should set the owner on the deployed module
+    ├── it should not require the caller to own the PaymentRails
+    ├── it should wire the module to the PaymentRails
+    ├── it should register the module in the factory
+    ├── it should increment the module count
+    ├── it should register the module under the PaymentRails lookup
+    ├── it should emit a BraleModuleCreated event
+    └── when called multiple times
+        ├── it should deploy distinct instances
+        ├── it should register all instances
+        └── it should accumulate instances in the PaymentRails lookup

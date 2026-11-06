@@ -1,0 +1,8 @@
+BraleModule_ComputeRedemptionId
+├── when called with a nonce
+│   ├── it should equal the local recompute
+│   ├── it should be distinct per nonce (fuzz)
+│   ├── it should change with the chain id
+│   └── it should differ between module instances
+└── when reading the typehash
+    └── it should equal the literal keccak

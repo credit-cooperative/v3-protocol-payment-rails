@@ -260,4 +260,50 @@ library Errors {
     ///      authorization: an undelegated EOA or a typo fails by name instead of yielding a module
     ///      that nothing can ever call. An EIP-7702-delegated EOA has code and passes.
     error AtumModuleFactory_PaymentRailsNotContract(address paymentRails);
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                BRALE MODULE ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when the module is constructed with a zero PaymentRails address.
+    error BraleModule_ZeroPaymentRails();
+
+    /// @notice Thrown when `execute` is called by an address other than the wired PaymentRails.
+    /// @param caller The address that called `execute`.
+    /// @param paymentRails The PaymentRails the module is wired to.
+    error BraleModule_NotPaymentRails(address caller, address paymentRails);
+
+    /// @notice Thrown when the deposit address balance did not increase by exactly the requested amount.
+    /// @param expected Amount requested from the PaymentRails.
+    /// @param delivered Balance delta observed at the deposit address.
+    error BraleModule_UnexpectedDeliveredAmount(uint256 expected, uint256 delivered);
+
+    /// @notice Thrown when the PaymentRails balance did not decrease by exactly the requested amount.
+    /// @param expected Amount requested from the PaymentRails.
+    /// @param debited Balance delta observed at the PaymentRails.
+    error BraleModule_UnexpectedDebitedAmount(uint256 expected, uint256 debited);
+
+    /// @notice Thrown when `returnToPaymentRails` is called for a token the module does not hold.
+    /// @param token The token with a zero module balance.
+    error BraleModule_NothingToReturn(address token);
+
+    /// @notice Thrown when renouncing ownership of the module is attempted.
+    error BraleModule_OwnershipCannotBeRenounced();
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            BRALE MODULE FACTORY ERRORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Thrown when a module is created with a zero owner address.
+    error BraleModuleFactory_ZeroOwner();
+
+    /// @notice Thrown when a module is created with a zero PaymentRails address.
+    error BraleModuleFactory_ZeroPaymentRails();
+
+    /// @notice Thrown when the supplied PaymentRails address has no code.
+    /// @param paymentRails The address supplied as PaymentRails.
+    error BraleModuleFactory_PaymentRailsNotContract(address paymentRails);
+
+    /// @notice Thrown when renouncing ownership of the factory is attempted.
+    error BraleModuleFactory_OwnershipCannotBeRenounced();
 }
