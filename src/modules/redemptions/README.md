@@ -25,7 +25,7 @@ Manual, using the **onboarding key** (section 11). Run the steps in this order.
 5. `POST /accounts/{borrower_account_id}/addresses/external` with an `Idempotency-Key`; scope `addresses:write`.
    - Body: `{"name":"<borrower> PaymentRails","address":"<rails>","transfer_types":["<chain>", ...]}`.
    - Record the external `address_id`. To add chains later, `PATCH .../addresses/{address_id}` with `additional_transfer_types`.
-   - Brale only allows transfers to whitelisted destinations (section 12, question 3). The rails must be the **only** whitelisted destination on this borrower's account. Record the account's destination list in the runbook log and check it again on every audit.
+   - Brale only allows transfers to registered (whitelisted) destinations, and registering is this API call (section 12, question 3). The rails must be the **only** registered destination on this borrower's account. Never offer the borrower a UI or API to register wallets on this account. Record the account's destination list in the runbook log and check it again on every audit.
 6. **Runbook check (blocking).** The `depositAddress` about to be configured must **equal** (case-insensitive hex) the internal `address` from step 3 for **this borrower's** `account_id`. The step 5 external entry's `address` must equal the rails. A second person verifies; both values go in the runbook log.
 7. Write the registry row (section 3) and set its `enabled` flag for this rails. **This must happen BEFORE step 8:** once `configureToken(..., enabled=true)` runs on-chain, anyone can call `executeAction`, and the service only swaps for rails that are already registered. Running `configureToken(..., enabled=true)` first would let an early redemption go unprocessed.
 8. The rails owner calls `configureToken(token, "BRALE_REDEMPTION", module, minBalance, module.encodeParams({depositAddress, usdc, minAmount}), true)`.
@@ -132,7 +132,7 @@ Also keep a local unique index on `redemptionId` (Brale's key-retention window i
 | Onboarding key  | `accounts:write`, `addresses:write` (plus reads)                         | Offline, manual only (ops vault, two-person use) | Section 2 steps 1-5 only |
 | Hot service key | Transfers (create/read), balance reads, address/transfer reads, webhooks | The running service                              | Sections 5-10            |
 
-- The hot service key never holds `accounts:write` or `addresses:write`, so a compromised service cannot create accounts or register new destination addresses.
+- The hot service key never holds `accounts:write` or `addresses:write`, so a compromised service cannot create accounts or register new destination addresses. Registering an address is what whitelists it at Brale, so `addresses:write` is the key that controls where a borrower's funds can go.
 - Use separate Brale Applications for testnet and mainnet. Take exact scope strings from the dashboard.
 
 ## 12. Questions for Brale (answer before mainnet)
@@ -144,8 +144,9 @@ Answers from Brale so far are recorded inline with their date. Anything without 
 2. Does a platform-created managed business account give the borrower any dashboard or API login, or any ability to move funds?
    - **Partly answered (Brale, 2026-11-06):** the borrower **does get a portal login**. Brale described it as limited and recommends against borrowers using it to move funds. **Still open:** whether the portal can start transfers or off-ramps, and whether the platform can make portal access view-only or turn it off.
 3. Can the platform restrict a managed account's allowed transfer destinations to its registered rails external address only?
-   - **Partly answered (Brale, 2026-11-06):** transfers are restricted to **whitelisted destination addresses**. **Still open:** who can add or remove whitelisted destinations (platform only, or the borrower from the portal), and whether the whitelist also blocks off-ramps to a linked bank account (wire/ACH).
-   - If only the platform controls the whitelist and only the rails is on it, a borrower with a portal login can move funds only back to the rails. That would close the custodial-wallet withdrawal risk (AI audit lead "offchain-custody-exit"). Until both open points are answered, treat that risk as live.
+   - **Answered (Brale, 2026-11-06):** transfers are restricted to **whitelisted destination addresses**. The whitelist is the set of external addresses registered on the account through the API (`POST .../addresses/external`). Every recipient of stablecoins from a Brale address must be pre-registered this way. Brale runs sanctions screening on each registration; any wallet that passes can be registered. Brale suggested platforms may expose a UI or API so customers can register their own wallets.
+   - **Our rule:** for accounts used with `BraleModule`, **never** expose wallet registration to the borrower. Only the offline onboarding key (section 11) registers addresses, and the rails is the only registered destination. With that rule, a borrower with a portal login can move funds only back to the rails, which closes the custodial-wallet withdrawal risk (AI audit lead "offchain-custody-exit") for on-chain transfers.
+   - **Still open:** whether the borrower's portal itself can register addresses, and whether off-ramps to a linked bank account (wire/ACH) also need a registered destination that only the platform can add. Until both are confirmed, treat the off-ramp path as live.
 4. Is on-chain redemption, or a stablecoin swap Automation that converts deposits on arrival, on Brale's roadmap? (Asked 2026-11-06, no answer yet.)
 5. What is the legal ownership and segregation of balances held in managed accounts (borrower vs platform, insolvency treatment)?
 6. Is the reliance verification mode (Brale relying on Credit Coop's KYB) available, and what does it require?
