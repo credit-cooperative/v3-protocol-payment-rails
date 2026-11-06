@@ -25,6 +25,7 @@ Manual, using the **onboarding key** (section 11). Run the steps in this order.
 5. `POST /accounts/{borrower_account_id}/addresses/external` with an `Idempotency-Key`; scope `addresses:write`.
    - Body: `{"name":"<borrower> PaymentRails","address":"<rails>","transfer_types":["<chain>", ...]}`.
    - Record the external `address_id`. To add chains later, `PATCH .../addresses/{address_id}` with `additional_transfer_types`.
+   - Brale only allows transfers to whitelisted destinations (section 12, question 3). The rails must be the **only** whitelisted destination on this borrower's account. Record the account's destination list in the runbook log and check it again on every audit.
 6. **Runbook check (blocking).** The `depositAddress` about to be configured must **equal** (case-insensitive hex) the internal `address` from step 3 for **this borrower's** `account_id`. The step 5 external entry's `address` must equal the rails. A second person verifies; both values go in the runbook log.
 7. Write the registry row (section 3) and set its `enabled` flag for this rails. **This must happen BEFORE step 8:** once `configureToken(..., enabled=true)` runs on-chain, anyone can call `executeAction`, and the service only swaps for rails that are already registered. Running `configureToken(..., enabled=true)` first would let an early redemption go unprocessed.
 8. The rails owner calls `configureToken(token, "BRALE_REDEMPTION", module, minBalance, module.encodeParams({depositAddress, usdc, minAmount}), true)`.
@@ -77,7 +78,7 @@ Uniqueness: `module` unique, `account_id` unique per borrower, `internal_address
 - **Mandatory:** match the inbound Brale deposit on the borrower account to the on-chain tx hash (the inbound transfer's `transaction_id` must equal the log's tx hash, with matching amount and token) before creating the swap. A balance-only check is NOT sufficient, because the balance can be funded or drained by other flows.
 - Polling `GET /accounts/{borrower_account_id}/addresses/{internal_address_id}/balance?transfer_type=<t>&value_type=<v>` may be used as an additional check only.
 - Inbound-deposit webhooks are unconfirmed; do not depend on them.
-- The balance must cover `amount`. If not, retry with backoff, then alert (a borrower-initiated outflow is possible; see question 2 in section 12).
+- The balance must cover `amount`. If not, retry with backoff, then alert (the borrower has a portal login, so a borrower-initiated outflow may be possible; see questions 2 and 3 in section 12).
 
 ## 7. Amount
 
@@ -136,9 +137,16 @@ Also keep a local unique index on `redemptionId` (Brale's key-retention window i
 
 ## 12. Questions for Brale (answer before mainnet)
 
+Answers from Brale so far are recorded inline with their date. Anything without an answer is still open.
+
 1. Can platform (Credit Coop) credentials originate transfers on managed custodial business accounts, that is `POST /accounts/{borrower_account_id}/transfers`?
+   - **Answered (Brale, 2026-11-06): yes.** The service can create the swap under the borrower's account.
 2. Does a platform-created managed business account give the borrower any dashboard or API login, or any ability to move funds?
+   - **Partly answered (Brale, 2026-11-06):** the borrower **does get a portal login**. Brale described it as limited and recommends against borrowers using it to move funds. **Still open:** whether the portal can start transfers or off-ramps, and whether the platform can make portal access view-only or turn it off.
 3. Can the platform restrict a managed account's allowed transfer destinations to its registered rails external address only?
-4. What is the legal ownership and segregation of balances held in managed accounts (borrower vs platform, insolvency treatment)?
-5. Is the reliance verification mode (Brale relying on Credit Coop's KYB) available, and what does it require?
-6. Idempotency-Key format and retention, amount precision and swap fees, inbound-deposit detection or webhooks, and the Sepolia `transfer_type` name.
+   - **Partly answered (Brale, 2026-11-06):** transfers are restricted to **whitelisted destination addresses**. **Still open:** who can add or remove whitelisted destinations (platform only, or the borrower from the portal), and whether the whitelist also blocks off-ramps to a linked bank account (wire/ACH).
+   - If only the platform controls the whitelist and only the rails is on it, a borrower with a portal login can move funds only back to the rails. That would close the custodial-wallet withdrawal risk (AI audit lead "offchain-custody-exit"). Until both open points are answered, treat that risk as live.
+4. Is on-chain redemption, or a stablecoin swap Automation that converts deposits on arrival, on Brale's roadmap? (Asked 2026-11-06, no answer yet.)
+5. What is the legal ownership and segregation of balances held in managed accounts (borrower vs platform, insolvency treatment)?
+6. Is the reliance verification mode (Brale relying on Credit Coop's KYB) available, and what does it require?
+7. Idempotency-Key format and retention, amount precision and swap fees, inbound-deposit detection or webhooks, and the Sepolia `transfer_type` name.
