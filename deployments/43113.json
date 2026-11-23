@@ -1,5 +1,5 @@
 {
-  "chain": "chain-43113",
+  "chain": "avalanche_fuji",
   "chainId": 43113,
   "contracts": {
     "AtumModuleFactory": {
