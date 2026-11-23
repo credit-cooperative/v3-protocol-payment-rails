@@ -16,6 +16,7 @@ abstract contract AtumModuleFactoryBase is Test {
     event AtumModuleCreated(
         address indexed module, address indexed paymentRails, address indexed owner, address keeper
     );
+    event FactoryOperatorSet(address indexed sender, address indexed operator, bool indexed approved);
 
     /*//////////////////////////////////////////////////////////////////////////
                                     CONSTANTS
@@ -34,12 +35,14 @@ abstract contract AtumModuleFactoryBase is Test {
     address internal owner;
     /// @dev Neither the factory owner nor any PaymentRails owner.
     address internal stranger;
+    /// @dev An account the factory owner may approve as a factory operator; not approved in setUp.
+    address internal operator;
     address internal paymentRails;
     address internal keeper;
     /// @dev A second PaymentRails, also owned by this contract, for per-rails registry tests.
     address internal otherPaymentRails;
     /// @dev A real PaymentRails owned by someone other than the factory owner. Creation is gated on
-    ///      the factory owner, not the PaymentRails owner, so this must still be creatable.
+    ///      the factory owner and its operators, not the PaymentRails owner, so this must still be creatable.
     address internal foreignPaymentRails;
     address internal foreignRailsOwner;
 
@@ -51,6 +54,7 @@ abstract contract AtumModuleFactoryBase is Test {
         owner = makeAddr("owner");
         keeper = makeAddr("keeper");
         stranger = makeAddr("stranger");
+        operator = makeAddr("operator");
 
         // Real PaymentRails instances: creation requires `paymentRails` to have code, so it cannot
         // be a bare `makeAddr`. No PaymentRailsFactory is involved; the AtumModuleFactory is not
@@ -66,5 +70,11 @@ abstract contract AtumModuleFactoryBase is Test {
         // This test contract owns the factory (Certora L-01), so every unpranked
         // `factory.create(...)` call is made by the factory owner.
         factory = new AtumModuleFactory(address(this), address(permit2));
+    }
+
+    /// @dev Approves `operator` as the factory owner (this contract). Not done in setUp so each test
+    ///      starts from the deployment state, where no operator exists.
+    function _approveOperator() internal {
+        factory.setFactoryOperator(operator, true);
     }
 }

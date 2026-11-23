@@ -1,0 +1,21 @@
+PaymentRailsFactory_FactoryOperators
+├── given no operator has been approved
+│   └── it should report false for any address, including the owner
+├── when caller is neither the owner nor an approved operator (fuzzed)
+│   └── it should revert with PaymentRailsFactory_NotOwnerOrOperator on create and createDeterministic
+├── when caller is not the owner
+│   ├── it should revert with OwnableUnauthorizedAccount for a stranger
+│   └── it should revert with OwnableUnauthorizedAccount for an approved operator
+└── when caller is the owner
+    ├── when operator is the zero address
+    │   └── it should revert with PaymentRailsFactory_ZeroOperator
+    ├── when approving an operator
+    │   ├── it should set factoryOperators to true
+    │   ├── it should emit FactoryOperatorSet(owner, operator, true)
+    │   └── it should return true
+    ├── when revoking an operator
+    │   ├── it should set factoryOperators to false
+    │   └── it should emit FactoryOperatorSet(owner, operator, false)
+    └── when the value is unchanged
+        ├── it should not revert
+        └── it should emit FactoryOperatorSet again

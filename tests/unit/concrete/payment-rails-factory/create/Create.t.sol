@@ -1,17 +1,45 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-
 import { PaymentRailsFactoryBase } from "../PaymentRailsFactoryBase.t.sol";
 import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
 import { Errors } from "../../../../../src/libraries/Errors.sol";
 
 contract Create_Test is PaymentRailsFactoryBase {
-    function test_RevertWhen_CallerIsNotFactoryOwner() external {
+    function test_RevertWhen_CallerIsNotOwnerOrOperator() external {
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, stranger));
         factory.create(owner);
+    }
+
+    function test_WhenCallerIsApprovedOperator_ShouldCreate() external {
+        _approveOperator();
+
+        // Check topic2 (owner) without asserting topic1 (unpredictable CREATE address).
+        vm.expectEmit(false, true, false, true);
+        emit PaymentRailsCreated(address(0), owner);
+
+        vm.prank(operator);
+        address instance = factory.create(owner);
+
+        assertTrue(factory.isDeployedInstance(instance));
+        assertEq(factory.getInstanceCount(), 1);
+    }
+
+    function test_RevertWhen_CallerIsRevokedOperator() external {
+        _approveOperator();
+        factory.setFactoryOperator(operator, false);
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, operator));
+        factory.create(owner);
+    }
+
+    function test_WhenOwnerIsNotAnOperator_ShouldStillCreate() external {
+        assertFalse(factory.factoryOperators(address(this)));
+
+        address instance = factory.create(owner);
+        assertTrue(factory.isDeployedInstance(instance));
     }
 
     function test_RevertWhen_OwnerIsZeroAddress() external {

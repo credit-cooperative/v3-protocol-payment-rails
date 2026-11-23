@@ -11,8 +11,9 @@ import { Errors } from "../../libraries/Errors.sol";
 /// @title CowSwapModuleFactory
 /// @author Credit Cooperative
 /// @notice See the documentation in {ICowSwapModuleFactory}.
-/// @dev Creation is owner-gated so the registry only lists modules this organization deployed. The
-/// factory cannot verify `paymentRails` is a genuine PaymentRails; the owner is trusted to pass it.
+/// @dev Creation is restricted to the owner and owner-approved factory operators so the registry only
+/// lists modules this organization deployed. The factory cannot verify `paymentRails` is a genuine
+/// PaymentRails; the owner and operators are trusted to pass it.
 contract CowSwapModuleFactory is ICowSwapModuleFactory, Ownable2Step {
     /*//////////////////////////////////////////////////////////////////////////
                                 IMMUTABLE STATE
@@ -43,14 +44,18 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory, Ownable2Step {
     /// @dev Maps a PaymentRails to all modules deployed for it.
     mapping(address paymentRails => address[] modules) private _modulesByPaymentRails;
 
+    /// @inheritdoc ICowSwapModuleFactory
+    mapping(address operator => bool approved) public override factoryOperators;
+
     /*//////////////////////////////////////////////////////////////////////////
                                     CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev Chain-specific configuration is fixed at factory deployment so the registry
     /// guarantees the wiring of every module it lists, not just the bytecode.
-    /// @param initialOwner Address allowed to create modules. Taken as an argument, not
-    /// `msg.sender`, so the deployer never holds the role and no handover is required.
+    /// @param initialOwner Address allowed to create modules and to approve factory operators.
+    /// Taken as an argument, not `msg.sender`, so the deployer never holds the role and no handover is
+    /// required. No operator is approved at construction.
     /// @param _cowSettlement GPv2Settlement contract address.
     /// @param _sequencerUptimeFeed Chainlink L2 sequencer uptime feed; address(0) on L1.
     /// @param _sequencerGracePeriod Seconds after sequencer recovery before trusting oracles.
@@ -97,10 +102,29 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory, Ownable2Step {
                                     OWNERSHIP
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev Disables renounceOwnership(): renouncing would leave both creation paths permanently
-    /// uncallable, bricking the factory.
+    /// @dev Disables renounceOwnership(): renouncing would freeze the operator set -- no one could
+    /// revoke a compromised operator or approve a new one -- and with no operator approved would
+    /// leave both creation paths permanently uncallable, bricking the factory.
     function renounceOwnership() public pure override {
         revert Errors.CowSwapModuleFactory_OwnershipCannotBeRenounced();
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                OPERATOR MANAGEMENT
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICowSwapModuleFactory
+    function setFactoryOperator(address operator, bool approved) external onlyOwner returns (bool) {
+        // Checks: address(0) can never be msg.sender, so approving it is always a mistake.
+        if (operator == address(0)) {
+            revert Errors.CowSwapModuleFactory_ZeroOperator();
+        }
+
+        // Effects: Idempotent by design; an unchanged value still emits so the log mirrors every owner action.
+        factoryOperators[operator] = approved;
+
+        emit FactoryOperatorSet(msg.sender, operator, approved);
+        return true;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -108,7 +132,7 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory, Ownable2Step {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICowSwapModuleFactory
-    function create(address owner, address paymentRails) external onlyOwner returns (address module) {
+    function create(address owner, address paymentRails) external onlyOwnerOrFactoryOperator returns (address module) {
         // Checks: Validate the per-instance parameters.
         _checkCreateParams(owner, paymentRails);
 
@@ -127,12 +151,16 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory, Ownable2Step {
         bytes32 salt
     )
         external
-        onlyOwner
+        onlyOwnerOrFactoryOperator
         returns (address module)
     {
         // Checks: Validate the per-instance parameters.
         _checkCreateParams(owner, paymentRails);
 
+        // NOTE: the salt is not bound to the caller, so another authorized caller (owner or operator)
+        // can submit the same arguments and salt first. The original tx then reverts while the same
+        // contract lands at the same address: griefing only. Callers should check the predicted
+        // address for code before sending.
         // Interactions: Deploy new CowSwapModule with deterministic address.
         module = address(
             new CowSwapModule{ salt: salt }(
@@ -217,5 +245,17 @@ contract CowSwapModuleFactory is ICowSwapModuleFactory, Ownable2Step {
         _modulesByPaymentRails[paymentRails].push(module);
 
         emit CowSwapModuleCreated(module, paymentRails, owner);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    MODIFIERS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Restricts creation to the factory owner or an approved factory operator.
+    modifier onlyOwnerOrFactoryOperator() {
+        if (msg.sender != owner() && !factoryOperators[msg.sender]) {
+            revert Errors.CowSwapModuleFactory_NotOwnerOrOperator(msg.sender);
+        }
+        _;
     }
 }

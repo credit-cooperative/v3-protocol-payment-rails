@@ -1,16 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-
 import { PaymentRailsFactoryBase } from "../PaymentRailsFactoryBase.t.sol";
 import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
 import { Errors } from "../../../../../src/libraries/Errors.sol";
 
 contract CreateDeterministic_Test is PaymentRailsFactoryBase {
-    function test_RevertWhen_CallerIsNotFactoryOwner() external {
+    function test_RevertWhen_CallerIsNotOwnerOrOperator() external {
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, stranger));
+        factory.createDeterministic(owner, DEFAULT_SALT);
+    }
+
+    /// @dev The prediction does not depend on the caller, so an operator deploys to the same address
+    /// the owner would.
+    function test_WhenCallerIsApprovedOperator_ShouldDeployAtPredictedAddress() external {
+        _approveOperator();
+        address predicted = factory.predictDeterministicAddress(owner, DEFAULT_SALT);
+
+        vm.prank(operator);
+        address instance = factory.createDeterministic(owner, DEFAULT_SALT);
+
+        assertEq(instance, predicted);
+        assertTrue(factory.isDeployedInstance(instance));
+    }
+
+    function test_RevertWhen_CallerIsRevokedOperator() external {
+        _approveOperator();
+        factory.setFactoryOperator(operator, false);
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, operator));
         factory.createDeterministic(owner, DEFAULT_SALT);
     }
 
@@ -75,5 +95,22 @@ contract CreateDeterministic_Test is PaymentRailsFactoryBase {
         address predicted = factory.predictDeterministicAddress(fuzzOwner, fuzzSalt);
         address actual = factory.createDeterministic(fuzzOwner, fuzzSalt);
         assertEq(actual, predicted);
+    }
+
+    /// @dev The salt is not caller-bound: once an operator deploys, the owner's identical call
+    /// reverts, but the contract sits at the address both would have used (griefing only).
+    function test_RevertWhen_OperatorDeployedSameArgsAndSaltFirst() external {
+        _approveOperator();
+        address predicted = factory.predictDeterministicAddress(owner, DEFAULT_SALT);
+
+        vm.prank(operator);
+        address instance = factory.createDeterministic(owner, DEFAULT_SALT);
+        assertEq(instance, predicted);
+
+        vm.expectRevert();
+        factory.createDeterministic(owner, DEFAULT_SALT);
+
+        assertTrue(factory.isDeployedInstance(predicted));
+        assertEq(factory.getInstanceCount(), 1);
     }
 }

@@ -11,8 +11,8 @@ import { BaseScript } from "../Base.s.sol";
 /// @notice Deploys the PaymentRailsFactory contract. Run once per chain; use the factory to deploy
 ///         PaymentRails instances.
 ///
-///      `owner` is the only address allowed to call create()/createDeterministic(). It is taken as
-///      an argument, so the deployer key never holds the role and needs no handover. Pass the
+///      `owner` may call create()/createDeterministic() and approve factory operators via setFactoryOperator() (none at
+/// deployment). It is taken as an argument, so the deployer key never holds the role and needs no handover. Pass the
 ///      multi-sig unless an EOA is deliberately being given creation duty.
 ///
 ///      Nothing else binds to this factory's address: `AtumModuleFactory` only requires `paymentRails`

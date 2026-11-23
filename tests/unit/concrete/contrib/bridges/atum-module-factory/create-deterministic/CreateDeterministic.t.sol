@@ -5,7 +5,6 @@ import { AtumModuleFactoryBase } from "../AtumModuleFactoryBase.t.sol";
 import { AtumModule } from "../../../../../../../src/modules/contrib/bridges/AtumModule.sol";
 import { Errors } from "../../../../../../../src/libraries/Errors.sol";
 import { PaymentRails } from "../../../../../../../src/core/PaymentRails.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CreateDeterministic_AtumModuleFactory_Test is AtumModuleFactoryBase {
     function test_RevertWhen_OwnerIsZeroAddress() external {
@@ -115,10 +114,10 @@ contract CreateDeterministic_AtumModuleFactory_Test is AtumModuleFactoryBase {
         assertEq(actual, predicted);
     }
 
-    /// I-04. The salt is bound to the caller. With creation owner-gated no third party can
-    /// front-run, but the binding still keeps each factory owner's address space disjoint: after
-    /// an ownership transfer, the new owner reusing a salt with the same params does not collide
-    /// with the old owner's deployment.
+    /// I-04. The salt is bound to the caller. With creation restricted to the owner and approved
+    /// operators no third party can front-run, but the binding still keeps each factory owner's
+    /// address space disjoint: after an ownership transfer, the new owner reusing a salt with the
+    /// same params does not collide with the old owner's deployment.
     function test_CreateDeterministic_SameSaltDifferentDeployersDoNotCollide() external {
         address moduleA = factory.createDeterministic(owner, paymentRails, keeper, DEFAULT_SALT);
 
@@ -136,6 +135,53 @@ contract CreateDeterministic_AtumModuleFactory_Test is AtumModuleFactoryBase {
         );
     }
 
+    /// I-04 with operators. The operator's address space is its own: the prediction for the
+    /// operator matches the deployment it submits, and the owner's prediction does not.
+    function test_WhenCallerIsApprovedOperator_DeploysAtOperatorScopedAddress() external {
+        _approveOperator();
+
+        address predictedForOperator =
+            factory.predictDeterministicAddress(operator, owner, paymentRails, keeper, DEFAULT_SALT);
+        address predictedForOwner =
+            factory.predictDeterministicAddress(address(this), owner, paymentRails, keeper, DEFAULT_SALT);
+
+        vm.prank(operator);
+        address module = factory.createDeterministic(owner, paymentRails, keeper, DEFAULT_SALT);
+
+        assertEq(module, predictedForOperator, "operator-scoped prediction");
+        assertTrue(module != predictedForOwner, "owner prediction must not match");
+        assertTrue(factory.isDeployedModule(module));
+    }
+
+    /// I-04 with operators. The owner and an operator can use the same salt and params without
+    /// colliding, in either order.
+    function test_CreateDeterministic_OwnerAndOperatorSameSaltDoNotCollide() external {
+        _approveOperator();
+
+        address ownerModule = factory.createDeterministic(owner, paymentRails, keeper, DEFAULT_SALT);
+
+        vm.prank(operator);
+        address operatorModule = factory.createDeterministic(owner, paymentRails, keeper, DEFAULT_SALT);
+
+        assertTrue(ownerModule != operatorModule, "same salt must not mean the same address");
+        assertEq(
+            ownerModule, factory.predictDeterministicAddress(address(this), owner, paymentRails, keeper, DEFAULT_SALT)
+        );
+        assertEq(
+            operatorModule, factory.predictDeterministicAddress(operator, owner, paymentRails, keeper, DEFAULT_SALT)
+        );
+        assertEq(factory.getModuleCount(), 2);
+    }
+
+    function test_RevertWhen_CallerIsRevokedOperator() external {
+        _approveOperator();
+        factory.setFactoryOperator(operator, false);
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_NotOwnerOrOperator.selector, operator));
+        factory.createDeterministic(owner, paymentRails, keeper, DEFAULT_SALT);
+    }
+
     /// The salt is bound to the caller, so prediction for a different deployer differs.
     function test_PredictDeterministicAddress_IsPerDeployer() external view {
         address forThis = factory.predictDeterministicAddress(address(this), owner, paymentRails, keeper, DEFAULT_SALT);
@@ -145,22 +191,23 @@ contract CreateDeterministic_AtumModuleFactory_Test is AtumModuleFactoryBase {
     }
 
     /// L-01. Both creation paths are gated: leaving either open would defeat the restriction.
-    function test_RevertWhen_CallerIsNotFactoryOwner() external {
+    /// An approved operator extends the trusted set but does not open creation.
+    function test_RevertWhen_CallerIsNotOwnerOrOperator() external {
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_NotOwnerOrOperator.selector, stranger));
         factory.createDeterministic(owner, paymentRails, keeper, DEFAULT_SALT);
     }
 
-    function test_RevertWhen_CallerIsPaymentRailsOwnerButNotFactoryOwner() external {
+    function test_RevertWhen_CallerIsPaymentRailsOwnerButNotOwnerOrOperator() external {
         vm.prank(foreignRailsOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, foreignRailsOwner));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_NotOwnerOrOperator.selector, foreignRailsOwner));
         factory.createDeterministic(owner, foreignPaymentRails, keeper, DEFAULT_SALT);
     }
 
-    /// Owner-gated creation is also what stops a mempool observer occupying the address first.
+    /// Restricting creation to owner/operators is also what stops a mempool observer occupying the address first.
     function test_RevertWhen_StrangerFrontRunsTheSameParams() external {
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_NotOwnerOrOperator.selector, stranger));
         factory.createDeterministic(owner, paymentRails, keeper, DEFAULT_SALT);
 
         address module = factory.createDeterministic(owner, paymentRails, keeper, DEFAULT_SALT);

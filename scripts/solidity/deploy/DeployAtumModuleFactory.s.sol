@@ -11,8 +11,9 @@ import { BaseScript } from "../Base.s.sol";
 /// @notice Deploys the AtumModuleFactory contract. Run once per chain; use the factory to deploy
 ///         a dedicated AtumModule per PaymentRails instance (e.g. per borrower).
 ///
-///      `owner` is the only address allowed to call create()/createDeterministic(); pass the multi-sig.
-///      The factory is not bound to a PaymentRailsFactory, so it does not need redeploying when
+///      `owner` may call create()/createDeterministic() and approve factory operators via setFactoryOperator() (none at
+/// deployment); pass the multi-sig. The factory is not bound to a PaymentRailsFactory, so it does not need redeploying
+/// when
 ///      the rails factory is.
 ///
 ///      Usage:
@@ -37,7 +38,7 @@ contract DeployAtumModuleFactory is BaseScript {
         console2.log("Save to .env:");
         console2.log("  ATUM_MODULE_FACTORY_ADDRESS=%s", vm.toString(address(factory)));
         console2.log("");
-        console2.log("Then deploy a module per PaymentRails, from the factory owner:");
+        console2.log("Then deploy a module per PaymentRails, from the factory owner or an approved operator:");
         console2.log("  cast send $ATUM_MODULE_FACTORY_ADDRESS 'create(address,address,address)' \\");
         console2.log("    <MODULE_OWNER> <PAYMENT_RAILS> <KEEPER>");
         console2.log("  Verify module.paymentRails(), module.owner() and module.keeper()");

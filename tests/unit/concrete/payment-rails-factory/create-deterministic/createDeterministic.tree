@@ -1,6 +1,12 @@
 PaymentRailsFactory_CreateDeterministic
-├── when caller is not the factory owner
-│   └── it should revert with OwnableUnauthorizedAccount
+├── when caller is neither the factory owner nor an approved operator
+│   └── it should revert with PaymentRailsFactory_NotOwnerOrOperator
+├── when caller is an approved operator
+│   └── it should deploy to the predicted address
+├── when caller is a revoked operator
+│   └── it should revert with PaymentRailsFactory_NotOwnerOrOperator
+├── when the owner deployed the same args and salt as an approved operator first
+│   └── it should revert, leaving the shared contract at the predicted address
 ├── when owner is zero address
 │   └── it should revert with PaymentRailsFactory_ZeroOwner
 ├── when owner is valid address

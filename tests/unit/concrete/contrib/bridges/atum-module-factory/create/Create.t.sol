@@ -5,35 +5,68 @@ import { AtumModuleFactoryBase } from "../AtumModuleFactoryBase.t.sol";
 import { AtumModule } from "../../../../../../../src/modules/contrib/bridges/AtumModule.sol";
 import { Errors } from "../../../../../../../src/libraries/Errors.sol";
 import { PaymentRails } from "../../../../../../../src/core/PaymentRails.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 contract Create_AtumModuleFactory_Test is AtumModuleFactoryBase {
     /// L-01. Creation was permissionless, so anyone could deploy a genuine factory module naming
     /// a victim's PaymentRails -- making themselves owner and keeper -- and have it recorded
     /// against the victim in the registry, passing `isDeployedModule` and appearing in
-    /// `getModulesForPaymentRails(victim)`. Creation is now restricted to the factory owner.
-    function test_RevertWhen_CallerIsNotFactoryOwner() external {
+    /// `getModulesForPaymentRails(victim)`. Creation is now restricted to the factory owner and approved operators.
+    function test_RevertWhen_CallerIsNotOwnerOrOperator() external {
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_NotOwnerOrOperator.selector, stranger));
         factory.create(owner, paymentRails, keeper);
     }
 
     /// Owning the PaymentRails no longer grants creation: `owner()` on an arbitrary contract is
     /// not a trustworthy answer, so the factory does not ask it.
-    function test_RevertWhen_CallerIsPaymentRailsOwnerButNotFactoryOwner() external {
+    function test_RevertWhen_CallerIsPaymentRailsOwnerButNotOwnerOrOperator() external {
         vm.prank(foreignRailsOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, foreignRailsOwner));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_NotOwnerOrOperator.selector, foreignRailsOwner));
         factory.create(owner, foreignPaymentRails, keeper);
     }
 
     function test_WhenUnauthorized_RegistryStaysEmpty() external {
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_NotOwnerOrOperator.selector, stranger));
         factory.create(owner, foreignPaymentRails, keeper);
 
         assertEq(factory.getModuleCount(), 0);
         assertEq(factory.getModulesForPaymentRails(foreignPaymentRails).length, 0);
+    }
+
+    function test_WhenCallerIsApprovedOperator_ShouldCreate() external {
+        _approveOperator();
+
+        // Check topic2 (paymentRails), topic3 (owner) and data (keeper) without asserting topic1
+        // (unpredictable CREATE address).
+        vm.expectEmit(false, true, true, true);
+        emit AtumModuleCreated(address(0), foreignPaymentRails, owner, keeper);
+
+        vm.prank(operator);
+        address module = factory.create(owner, foreignPaymentRails, keeper);
+
+        assertTrue(factory.isDeployedModule(module));
+        assertEq(factory.getModuleCount(), 1);
+        assertEq(AtumModule(module).owner(), owner);
+        assertEq(AtumModule(module).keeper(), keeper);
+        assertEq(AtumModule(module).paymentRails(), foreignPaymentRails);
+    }
+
+    function test_RevertWhen_CallerIsRevokedOperator() external {
+        _approveOperator();
+        factory.setFactoryOperator(operator, false);
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_NotOwnerOrOperator.selector, operator));
+        factory.create(owner, paymentRails, keeper);
+    }
+
+    function test_WhenOwnerIsNotAnOperator_ShouldStillCreate() external {
+        assertFalse(factory.factoryOperators(address(this)));
+
+        address module = factory.create(owner, paymentRails, keeper);
+        assertTrue(factory.isDeployedModule(module));
     }
 
     function test_RevertWhen_OwnerIsZeroAddress() external {
@@ -166,8 +199,9 @@ contract Create_AtumModuleFactory_Test is AtumModuleFactoryBase {
         assertEq(factory.getModulesForPaymentRails(foreignPaymentRails).length, 1);
     }
 
-    /// An address with no code fails the code-length check. Creation is owner-gated, so this only
-    /// catches the owner passing an EOA or a typo; it is not an authorization.
+    /// An address with no code fails the code-length check. Creation is restricted to the owner and
+    /// approved operators, so this only catches an authorized caller passing an EOA or a typo; it is
+    /// not an authorization.
     function test_Create_RevertsWhenPaymentRailsHasNoCode() external {
         address eoa = makeAddr("notAContract");
         vm.expectRevert(abi.encodeWithSelector(Errors.AtumModuleFactory_PaymentRailsNotContract.selector, eoa));
