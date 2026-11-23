@@ -1,7 +1,13 @@
 CowSwapModuleFactory_CreateDeterministic
-├── when the caller is not the factory owner
-│   ├── it should revert with OwnableUnauthorizedAccount
+├── when the caller is neither the factory owner nor an approved operator
+│   ├── it should revert with CowSwapModuleFactory_NotOwnerOrOperator
 │   └── it should leave the predicted address unoccupied
+├── when the caller is an approved operator
+│   └── it should deploy to the predicted address
+├── when the caller is a revoked operator
+│   └── it should revert with CowSwapModuleFactory_NotOwnerOrOperator
+├── when the owner deployed the same args and salt as an approved operator first
+│   └── it should revert, leaving the shared contract at the predicted address
 ├── when owner is zero address
 │   └── it should revert with CowSwapModuleFactory_ZeroOwner
 ├── when paymentRails is zero address

@@ -1,8 +1,14 @@
 AtumModuleFactory_Create
-├── when the caller is not the factory owner
-│   ├── it should revert with OwnableUnauthorizedAccount
+├── when the caller is neither the factory owner nor an approved operator
+│   ├── it should revert with AtumModuleFactory_NotOwnerOrOperator
 │   ├── it should revert even for the PaymentRails owner
 │   └── it should leave the registry empty
+├── when the caller is an approved operator
+│   └── it should create and register the module and emit AtumModuleCreated
+├── when the caller is a revoked operator
+│   └── it should revert with AtumModuleFactory_NotOwnerOrOperator
+├── when the caller is the factory owner and not an operator
+│   └── it should still create the module
 ├── when owner is zero address
 │   └── it should revert with AtumModuleFactory_ZeroOwner
 ├── when paymentRails is zero address

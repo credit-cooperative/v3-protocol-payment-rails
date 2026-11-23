@@ -10,7 +10,6 @@ import { PaymentRails } from "../../../../../src/core/PaymentRails.sol";
 import { DataTypes } from "../../../../../src/types/DataTypes.sol";
 import { Errors } from "../../../../../src/libraries/Errors.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title CowSwapModuleFactoryFork_Test
 /// @notice Fork tests proving the factory deploys working CowSwapModules against the real
@@ -148,7 +147,7 @@ contract CowSwapModuleFactoryFork_Test is Test {
         address attacker = makeAddr("attacker");
 
         vm.prank(attacker);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, attacker));
+        vm.expectRevert(abi.encodeWithSelector(Errors.CowSwapModuleFactory_NotOwnerOrOperator.selector, attacker));
         factory.create(attacker, address(paymentRails));
 
         assertEq(factory.getModulesForPaymentRails(address(paymentRails)).length, 0);

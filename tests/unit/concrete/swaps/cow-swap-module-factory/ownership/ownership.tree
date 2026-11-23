@@ -6,8 +6,16 @@ CowSwapModuleFactory_Ownership
 │   └── it should not make the deployer the owner
 ├── when renounceOwnership is called
 │   └── it should revert with CowSwapModuleFactory_OwnershipCannotBeRenounced
+├── when an approved operator calls transferOwnership
+│   └── it should revert with OwnableUnauthorizedAccount
+├── when ownership is pending and not yet accepted
+│   └── it should stop the pending owner from creating or setting operators
 └── when ownership is transferred
     ├── it should not change the owner until accepted
     ├── it should set and then clear the pending owner
     ├── it should let the new owner create modules
-    └── it should still reject a non-owner caller
+    ├── it should still reject a caller that is neither owner nor operator with CowSwapModuleFactory_NotOwnerOrOperator
+    ├── it should reject the previous owner with CowSwapModuleFactory_NotOwnerOrOperator
+    ├── it should keep operator approvals
+    ├── it should let the new owner revoke an operator
+    └── it should stop the previous owner from setting operators with OwnableUnauthorizedAccount

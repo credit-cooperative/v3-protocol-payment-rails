@@ -124,6 +124,14 @@ library Errors {
     /// @notice Thrown when renouncing ownership of the factory is attempted.
     error PaymentRailsFactory_OwnershipCannotBeRenounced();
 
+    /// @notice Thrown when a creation function is called by an account that is neither the factory
+    /// owner nor an approved factory operator.
+    /// @param caller The rejected caller.
+    error PaymentRailsFactory_NotOwnerOrOperator(address caller);
+
+    /// @notice Thrown when `setFactoryOperator` is called with the zero address.
+    error PaymentRailsFactory_ZeroOperator();
+
     /*//////////////////////////////////////////////////////////////////////////
                         COWSWAP MODULE FACTORY ERRORS
     //////////////////////////////////////////////////////////////////////////*/
@@ -164,6 +172,14 @@ library Errors {
 
     /// @notice Thrown when renouncing ownership of the factory is attempted.
     error CowSwapModuleFactory_OwnershipCannotBeRenounced();
+
+    /// @notice Thrown when a creation function is called by an account that is neither the factory
+    /// owner nor an approved factory operator.
+    /// @param caller The rejected caller.
+    error CowSwapModuleFactory_NotOwnerOrOperator(address caller);
+
+    /// @notice Thrown when `setFactoryOperator` is called with the zero address.
+    error CowSwapModuleFactory_ZeroOperator();
 
     /*//////////////////////////////////////////////////////////////////////////
                         CCTP BRIDGE MODULE ERRORS
@@ -256,8 +272,17 @@ library Errors {
     error AtumModuleFactory_OwnershipCannotBeRenounced();
 
     /// @notice Thrown when the supplied PaymentRails address has no code.
-    /// @dev Creation is owner-gated, so this is a wiring check on what the owner passes, not an
-    ///      authorization: an undelegated EOA or a typo fails by name instead of yielding a module
-    ///      that nothing can ever call. An EIP-7702-delegated EOA has code and passes.
+    /// @dev Creation is restricted to the owner and approved factory operators, so this is a wiring
+    ///      check on what an authorized caller passes, not an authorization: an undelegated EOA or a
+    ///      typo fails by name instead of yielding a module that nothing can ever call. An
+    ///      EIP-7702-delegated EOA has code and passes.
     error AtumModuleFactory_PaymentRailsNotContract(address paymentRails);
+
+    /// @notice Thrown when a creation function is called by an account that is neither the factory
+    /// owner nor an approved factory operator.
+    /// @param caller The rejected caller.
+    error AtumModuleFactory_NotOwnerOrOperator(address caller);
+
+    /// @notice Thrown when `setFactoryOperator` is called with the zero address.
+    error AtumModuleFactory_ZeroOperator();
 }

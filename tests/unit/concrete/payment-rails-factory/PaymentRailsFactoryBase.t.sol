@@ -11,6 +11,7 @@ abstract contract PaymentRailsFactoryBase is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     event PaymentRailsCreated(address indexed paymentRails, address indexed owner);
+    event FactoryOperatorSet(address indexed sender, address indexed operator, bool indexed approved);
 
     /*//////////////////////////////////////////////////////////////////////////
                                     CONSTANTS
@@ -27,6 +28,7 @@ abstract contract PaymentRailsFactoryBase is Test {
     address internal owner;
     address internal deployer;
     address internal stranger;
+    address internal operator;
 
     /*//////////////////////////////////////////////////////////////////////////
                                     SET UP
@@ -36,9 +38,16 @@ abstract contract PaymentRailsFactoryBase is Test {
         owner = makeAddr("owner");
         deployer = makeAddr("deployer");
         stranger = makeAddr("stranger");
+        operator = makeAddr("operator");
 
         // The test contract is the factory owner, so create() calls in the suites below need no
         // prank; access control is exercised explicitly from `stranger`.
         factory = new PaymentRailsFactory(address(this));
+    }
+
+    /// @dev Approves `operator` as the factory owner (this contract). Not done in setUp so each test
+    /// starts from the deployment state, where no operator exists.
+    function _approveOperator() internal {
+        factory.setFactoryOperator(operator, true);
     }
 }

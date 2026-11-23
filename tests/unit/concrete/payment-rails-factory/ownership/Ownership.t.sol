@@ -53,7 +53,83 @@ contract PaymentRailsFactory_Ownership_Test is PaymentRailsFactoryBase {
         assertTrue(factory.isDeployedInstance(rails), "new owner can create");
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, stranger));
         factory.create(owner);
+    }
+
+    /// @dev Approvals are not cleared on a transfer; a new owner must review and revoke them.
+    function test_WhenOwnershipTransferred_OperatorApprovalsPersist() external {
+        _approveOperator();
+        factory.transferOwnership(owner);
+        vm.prank(owner);
+        factory.acceptOwnership();
+
+        assertTrue(factory.factoryOperators(operator), "approval persists");
+
+        vm.prank(operator);
+        address rails = factory.create(owner);
+        assertTrue(factory.isDeployedInstance(rails), "operator can still create");
+    }
+
+    function test_WhenOwnershipTransferred_NewOwnerCanRevokeOperator() external {
+        _approveOperator();
+        factory.transferOwnership(owner);
+        vm.prank(owner);
+        factory.acceptOwnership();
+
+        vm.prank(owner);
+        factory.setFactoryOperator(operator, false);
+        assertFalse(factory.factoryOperators(operator), "revoked");
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, operator));
+        factory.create(owner);
+    }
+
+    function test_WhenOwnershipTransferred_PreviousOwnerCannotSetOperator() external {
+        factory.transferOwnership(owner);
+        vm.prank(owner);
+        factory.acceptOwnership();
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        factory.setFactoryOperator(operator, true);
+    }
+
+    function test_RevertWhen_OperatorCallsTransferOwnership() external {
+        _approveOperator();
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, operator));
+        factory.transferOwnership(operator);
+    }
+
+    /// @dev Ownable2Step: a pending owner holds no rights until it calls acceptOwnership.
+    function test_WhenOwnershipPending_PendingOwnerCannotCreateOrSetOperator() external {
+        factory.transferOwnership(owner);
+        assertEq(factory.pendingOwner(), owner, "pendingOwner");
+
+        vm.startPrank(owner);
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, owner));
+        factory.create(owner);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, owner));
+        factory.createDeterministic(owner, DEFAULT_SALT);
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, owner));
+        factory.setFactoryOperator(operator, true);
+        vm.stopPrank();
+    }
+
+    /// @dev The previous owner loses the role on acceptance, not on transfer.
+    function test_WhenOwnershipTransferred_PreviousOwnerCannotCreate() external {
+        factory.transferOwnership(owner);
+        vm.prank(owner);
+        factory.acceptOwnership();
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, address(this)));
+        factory.create(owner);
+
+        vm.expectRevert(abi.encodeWithSelector(Errors.PaymentRailsFactory_NotOwnerOrOperator.selector, address(this)));
+        factory.createDeterministic(owner, DEFAULT_SALT);
     }
 }

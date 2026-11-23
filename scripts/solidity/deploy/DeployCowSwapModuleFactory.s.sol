@@ -11,8 +11,8 @@ import { BaseScript } from "../Base.s.sol";
 /// @notice Deploys the CowSwapModuleFactory contract. Run once per chain; use the factory to deploy
 ///         a dedicated CowSwapModule per PaymentRails instance.
 ///
-///      `owner` is the only address allowed to call create()/createDeterministic(); pass the multi-sig.
-///
+///      `owner` may call create()/createDeterministic() and approve factory operators via setFactoryOperator() (none at
+/// deployment); pass the multi-sig.
 ///      Usage:
 ///        source .env && forge script scripts/solidity/deploy/DeployCowSwapModuleFactory.s.sol \
 ///          --sig "run(address,address,uint256)" <FACTORY_OWNER> <SEQUENCER_FEED_OR_0x0> <GRACE_PERIOD> \
@@ -51,7 +51,7 @@ contract DeployCowSwapModuleFactory is BaseScript {
         console2.log("Save to .env:");
         console2.log("  COW_SWAP_MODULE_FACTORY_ADDRESS=%s", vm.toString(address(factory)));
         console2.log("");
-        console2.log("Then deploy a module per PaymentRails, from the factory owner:");
+        console2.log("Then deploy a module per PaymentRails, from the factory owner or an approved operator:");
         console2.log(
             "  cast send $COW_SWAP_MODULE_FACTORY_ADDRESS 'create(address,address)' <MODULE_OWNER> <PAYMENT_RAILS>"
         );

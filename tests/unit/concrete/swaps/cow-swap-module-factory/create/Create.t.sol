@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.29;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-
 import { CowSwapModuleFactoryBase } from "../CowSwapModuleFactoryBase.t.sol";
 import { CowSwapModule } from "../../../../../../src/modules/swaps/CowSwapModule.sol";
 import { PaymentRails } from "../../../../../../src/core/PaymentRails.sol";
@@ -10,21 +8,21 @@ import { Errors } from "../../../../../../src/libraries/Errors.sol";
 
 contract Create_CowSwapModuleFactory_Test is CowSwapModuleFactoryBase {
     /*//////////////////////////////////////////////////////////////////////////
-                            CALLER IS NOT THE FACTORY OWNER
+                    CALLER IS NEITHER THE FACTORY OWNER NOR AN OPERATOR
     //////////////////////////////////////////////////////////////////////////*/
 
-    function test_RevertWhen_CallerIsNotFactoryOwner() external {
+    function test_RevertWhen_CallerIsNotOwnerOrOperator() external {
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        vm.expectRevert(abi.encodeWithSelector(Errors.CowSwapModuleFactory_NotOwnerOrOperator.selector, stranger));
         factory.create(owner, paymentRails);
     }
 
     /// @dev Owning the PaymentRails confers no right to mint a module for it.
-    function test_RevertWhen_CallerIsPaymentRailsOwnerButNotFactoryOwner() external {
+    function test_RevertWhen_CallerIsPaymentRailsOwnerButNotOwnerOrOperator() external {
         assertEq(PaymentRails(payable(paymentRails)).owner(), railsOwner);
 
         vm.prank(railsOwner);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, railsOwner));
+        vm.expectRevert(abi.encodeWithSelector(Errors.CowSwapModuleFactory_NotOwnerOrOperator.selector, railsOwner));
         factory.create(railsOwner, paymentRails);
     }
 
@@ -36,6 +34,42 @@ contract Create_CowSwapModuleFactory_Test is CowSwapModuleFactoryBase {
 
         assertEq(factory.getModulesForPaymentRails(payable(paymentRails)).length, 0);
         assertEq(factory.getModuleCount(), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                FACTORY OPERATORS
+    //////////////////////////////////////////////////////////////////////////*/
+
+    function test_WhenCallerIsApprovedOperator_ShouldCreate() external {
+        _approveOperator();
+
+        // Check topic2 (paymentRails) and topic3 (owner) without asserting topic1 (unpredictable CREATE address).
+        vm.expectEmit(false, true, true, true);
+        emit CowSwapModuleCreated(address(0), paymentRails, owner);
+
+        vm.prank(operator);
+        address module = factory.create(owner, paymentRails);
+
+        assertTrue(factory.isDeployedModule(module));
+        assertEq(factory.getModuleCount(), 1);
+        assertEq(CowSwapModule(module).owner(), owner);
+        assertEq(CowSwapModule(module).paymentRails(), paymentRails);
+    }
+
+    function test_RevertWhen_CallerIsRevokedOperator() external {
+        _approveOperator();
+        factory.setFactoryOperator(operator, false);
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(Errors.CowSwapModuleFactory_NotOwnerOrOperator.selector, operator));
+        factory.create(owner, paymentRails);
+    }
+
+    function test_WhenOwnerIsNotAnOperator_ShouldStillCreate() external {
+        assertFalse(factory.factoryOperators(address(this)));
+
+        address module = factory.create(owner, paymentRails);
+        assertTrue(factory.isDeployedModule(module));
     }
 
     /*//////////////////////////////////////////////////////////////////////////

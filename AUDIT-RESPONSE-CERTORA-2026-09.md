@@ -148,6 +148,26 @@ The original recommendation remains available as an alternative, at the cost of 
 
 > **This changes every deterministic address.** Any precomputed address must be recalculated. `predictDeterministicAddress` therefore takes `deployer` explicitly, since prediction is an off-chain read and the requesting party is usually not the deploying party.
 
+> **Since extended.** Creation is now owner-or-operator; see [Post-response change: factory operators](#post-response-change-factory-operators).
+
+---
+
+## Post-response change: factory operators
+
+Made after this response, on `feat/adjust-factories`. It changes who may create, not how creation is checked, and applies to `AtumModuleFactory`, `PaymentRailsFactory` and `CowSwapModuleFactory` alike.
+
+**What changed.** Each factory now keeps a set of factory operators, the same mechanism `LineFactory` uses. The factory owner (still `Ownable2Step`, still unrenounceable) approves or revokes an operator with `setFactoryOperator(operator, approved)`, which emits `FactoryOperatorSet(sender, operator, approved)`. `create` and `createDeterministic` accept the owner or an approved operator; any other caller reverts with `<Factory>_NotOwnerOrOperator(caller)`. No operator exists at deployment, and operators cannot approve operators, transfer ownership or remove a registry entry.
+
+**Effect on L-01.** The registry was writable only by the factory owner; it is now writable by the owner and the operators the owner has approved. The property L-01 asked for still holds — a third party cannot write into another party's listing — but the trusted set is the owner plus its operators rather than the owner alone. A compromised operator can add entries, with any `owner`, `keeper` and `paymentRails`, until the owner revokes it, and entries cannot be removed. Registry membership remains provenance, not authorisation: a module is only live once the PaymentRails owner wires it via `configureToken`, after verifying `module.owner()`, `module.keeper()` and `module.paymentRails()`.
+
+> **Approvals survive an ownership transfer.** The operator set is a mapping and cannot be enumerated on-chain. A new owner must rebuild it from `FactoryOperatorSet` events and revoke any operator it does not trust.
+
+**Effect on I-04.** The salt is still `keccak256(deployer, salt)` with `deployer = msg.sender`, so every authorised caller — the owner and each operator — has its own address space. Authorised callers cannot collide with one another, so the race I-04 removed does not return among them. For off-chain tooling, `predictDeterministicAddress` must be given the address of the operator or owner that will actually submit the transaction; a prediction made for the owner does not hold when an operator deploys. (`PaymentRailsFactory` and `CowSwapModuleFactory` do not bind the salt; their constructor arguments are part of the address, so two authorised callers using the same arguments and salt would deploy the identical contract and the second transaction reverts.)
+
+> **Deployed factories are unchanged.** Factories already deployed keep owner-only creation; the operator role applies only to factories deployed from this version.
+
+**Coverage.** A `factory-operators/` unit suite per factory; `test_WhenCallerIsApprovedOperator_DeploysAtOperatorScopedAddress` and `test_CreateDeterministic_OwnerAndOperatorSameSaltDoNotCollide` for the I-04 interaction; and PHASE 8 of `scripts/bash/e2e-anvil.sh`, which runs approve → operator create → stranger rejected → revoke → operator rejected against all three factories on a mainnet fork.
+
 ---
 
 ## I-06 — sender-paid transfer fees

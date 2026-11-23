@@ -9,8 +9,8 @@ CowSwapModuleFactory_Fork
 │       ├── it should deploy a module for a PaymentRails the factory owner does not own
 │       └── when the module is configured on a PaymentRails
 │           └── it should execute a real USDC order end-to-end
-├── when create is called by a non-owner against a real PaymentRails
-│   ├── it should revert with OwnableUnauthorizedAccount
+├── when create is called by a non-owner non-operator against a real PaymentRails
+│   ├── it should revert with CowSwapModuleFactory_NotOwnerOrOperator
 │   └── it should leave the PaymentRails lookup empty
 └── when createDeterministic is called on the fork
     └── it should deploy to the predicted address

@@ -15,6 +15,7 @@ abstract contract CowSwapModuleFactoryBase is Test {
     //////////////////////////////////////////////////////////////////////////*/
 
     event CowSwapModuleCreated(address indexed module, address indexed paymentRails, address indexed owner);
+    event FactoryOperatorSet(address indexed sender, address indexed operator, bool indexed approved);
 
     /*//////////////////////////////////////////////////////////////////////////
                                     CONSTANTS
@@ -43,6 +44,9 @@ abstract contract CowSwapModuleFactoryBase is Test {
     /// @dev An address holding no role.
     address internal stranger;
 
+    /// @dev An account the factory owner may approve as a factory operator; not approved in setUp.
+    address internal operator;
+
     address internal paymentRails;
 
     address internal vaultRelayer;
@@ -56,6 +60,7 @@ abstract contract CowSwapModuleFactoryBase is Test {
         owner = makeAddr("owner");
         railsOwner = makeAddr("railsOwner");
         stranger = makeAddr("stranger");
+        operator = makeAddr("operator");
         vaultRelayer = makeAddr("vaultRelayer");
         // A sequencer uptime feed must be a real contract; answer 0 means the sequencer is up.
         sequencerFeed = address(new MockChainlinkAggregator(0, 0));
@@ -72,6 +77,12 @@ abstract contract CowSwapModuleFactoryBase is Test {
     /*//////////////////////////////////////////////////////////////////////////
                                     HELPERS
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Approves `operator` as the factory owner (this contract). Not done in setUp so each test
+    /// starts from the deployment state, where no operator exists.
+    function _approveOperator() internal {
+        factory.setFactoryOperator(operator, true);
+    }
 
     /// @dev Deploys a fresh PaymentRails owned by `instanceOwner`.
     function deployPaymentRails(address instanceOwner) internal returns (address) {

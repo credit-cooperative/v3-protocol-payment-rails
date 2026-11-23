@@ -38,6 +38,7 @@ UNISWAP_V3_ROUTER=0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
 GPV2_SETTLEMENT=0x9008D19f58AAbD9eD0D60971565AA8510560ab41
 GPV2_AUTHENTICATOR=0x2c4c28DDBdAc9C5E7055b4C863b72eA0149D8aFE
 TOKEN_MESSENGER_V2=0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d
+PERMIT2=0x000000000022D473030F116dDEE9F6B43aC78BA3      # canonical Permit2 (AtumModuleFactory)
 
 USDC=0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 WETH=0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
@@ -65,6 +66,7 @@ ATTACKER=0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65
 SOLVER=0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc
 SOLVER_PK=0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
 FUNDER=0x976EA74026E726554dB657fA54763abd0C3a0aa9
+OPERATOR=0x14dC79964da2C08b23698B3D3cc7Ca32193d9955     # approved factory operator (anvil #7)
 
 # ─────────────────────────────── reporting ───────────────────────────────
 PASS=0; FAIL=0; FAILED_LIST=()
@@ -152,7 +154,11 @@ EV_BRIDGE="BridgeInitiated(address,uint256,uint32,bytes32,uint256,uint32,bytes)"
 deploy_script() { # <script-path> [--sig ... args] -> echoes the created contract address
   local path="$1"; shift
   local name; name=$(basename "$path")
-  forge script "$path" --rpc-url "$RPC" --broadcast "$@" >"$WORKDIR/$name.log" 2>&1
+  # --unlocked hands signing to the node: anvil runs with --auto-impersonate, so this works whether
+  # $DEPLOYER came from a mnemonic or from a keyless $ETH_FROM in .env (which forge alone rejects
+  # with "No associated wallet").
+  forge script "$path" --rpc-url "$RPC" --broadcast --unlocked --sender "$DEPLOYER" "$@" \
+    >"$WORKDIR/$name.log" 2>&1
   if ! grep -q "ONCHAIN EXECUTION COMPLETE" "$WORKDIR/$name.log"; then
     printf "%s   %s did not broadcast — see %s%s\n" "$C_BAD" "$name" "$WORKDIR/$name.log" "$C_OFF"
     return 1
@@ -187,7 +193,7 @@ fi
 
 # Every actor needs gas: the anvil accounts start funded, but the deploy broadcaster comes from the
 # repo's own mnemonic and the CoW authenticator's manager is a mainnet address we impersonate.
-for a in "$DEPLOYER" "$RAILS_OWNER" "$KEEPER" "$RECIPIENT" "$ATTACKER" "$SOLVER" "$FUNDER"; do
+for a in "$DEPLOYER" "$RAILS_OWNER" "$KEEPER" "$RECIPIENT" "$ATTACKER" "$SOLVER" "$FUNDER" "$OPERATOR"; do
   cast rpc --rpc-url "$RPC" anvil_setBalance "$a" 0x21E19E0C9BAB2400000 >/dev/null 2>&1
 done
 
@@ -222,7 +228,9 @@ send "$FUNDER" "$UNISWAP_V3_ROUTER" \
   "($USDC,$DAI,100,$FUNDER,10000000000,0,0)" || bad "USDC->DAI swap"
 
 FUNDER_USDC=$(bal $USDC $FUNDER); FUNDER_DAI=$(bal $DAI $FUNDER)
-assert_ge "funder USDC from Uniswap" "$FUNDER_USDC" "30000000000"
+# The floor is what the run spends later (4k + 2k USDC to the rails) plus headroom, not a price:
+# 20 WETH clears it at any ETH price above ~$1,000 (10k goes to DAI first), so a market move cannot fail the run.
+assert_ge "funder USDC from Uniswap" "$FUNDER_USDC" "10000000000"
 assert_ge "funder DAI from Uniswap" "$FUNDER_DAI" "9900000000000000000000"
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -232,6 +240,7 @@ step "factories for the per-instance contracts"
 RAILS_FACTORY=$(deploy_script scripts/solidity/deploy/DeployPaymentRailsFactory.s.sol --sig "run(address)" "$RAILS_OWNER")
 COW_FACTORY=$(deploy_script scripts/solidity/deploy/DeployCowSwapModuleFactory.s.sol \
   --sig "run(address,address,uint256)" "$RAILS_OWNER" "0x0000000000000000000000000000000000000000" 0)
+ATUM_FACTORY=$(deploy_script scripts/solidity/deploy/DeployAtumModuleFactory.s.sol --sig "run(address)" "$RAILS_OWNER")
 
 step "one shared instance each for the stateless modules"
 FWD_MODULE=$(deploy_script scripts/solidity/deploy/DeployForwardModule.s.sol)
@@ -241,7 +250,7 @@ CCTP_MODULE=$(deploy_script scripts/solidity/deploy/DeployCCTPBridgeModule.s.sol
   --sig "run(address,address)" "$TOKEN_MESSENGER_V2" "$USDC")
 
 for pair in "PaymentRailsFactory:$RAILS_FACTORY" "CowSwapModuleFactory:$COW_FACTORY" \
-            "ForwardModule:$FWD_MODULE" "DexSwapModule:$DEX_MODULE" "CCTPBridgeModule:$CCTP_MODULE"; do
+            "AtumModuleFactory:$ATUM_FACTORY" "ForwardModule:$FWD_MODULE" "DexSwapModule:$DEX_MODULE" "CCTPBridgeModule:$CCTP_MODULE"; do
   n=${pair%%:*}; a=${pair##*:}
   if [[ -n "$a" && "$(cast codesize "$a" --rpc-url "$RPC" 2>/dev/null)" -gt 0 ]]; then
     ok "$n deployed at $a"
@@ -253,6 +262,8 @@ done
 step "deployed contracts carry the chain config they were given"
 assert_eq "CowSwapModuleFactory.cowSettlement" "$(cu $COW_FACTORY 'cowSettlement()(address)')" "$GPV2_SETTLEMENT"
 assert_eq "CowSwapModuleFactory.owner" "$(cu $COW_FACTORY 'owner()(address)')" "$RAILS_OWNER"
+assert_eq "AtumModuleFactory.owner" "$(cu $ATUM_FACTORY 'owner()(address)')" "$RAILS_OWNER"
+assert_eq "AtumModuleFactory.permit2" "$(cu $ATUM_FACTORY 'permit2()(address)')" "$PERMIT2"
 assert_eq "DexSwapModule.router" "$(cu $DEX_MODULE 'router()(address)')" "$UNISWAP_V3_ROUTER"
 assert_eq "CCTPBridgeModule.tokenMessenger" "$(cu $CCTP_MODULE 'tokenMessenger()(address)')" "$TOKEN_MESSENGER_V2"
 assert_eq "CCTPBridgeModule.usdc" "$(cu $CCTP_MODULE 'usdc()(address)')" "$USDC"
@@ -261,7 +272,7 @@ assert_eq "CCTPBridgeModule.usdc" "$(cu $CCTP_MODULE 'usdc()(address)')" "$USDC"
 phase "PHASE 3 — PaymentRailsFactory lifecycle"
 
 step "create() — rails A, owned by the multi-sig stand-in"
-# Both creation paths are owner-gated, so they come from the factory owner, not the deployer.
+# Both creation paths are restricted to the owner and approved operators (none yet — see PHASE 8), so they come from the factory owner, not the deployer.
 send "$RAILS_OWNER" "$RAILS_FACTORY" "create(address)" "$RAILS_OWNER" || bad "create()"
 RAILS_A=$(addr_from_log "rails A" "$RAILS_FACTORY" "PaymentRailsCreated(address,address)")
 ok "rails A = $RAILS_A"
@@ -475,8 +486,8 @@ assert_eq "WETH untouched" "$(bal $WETH $RAILS_A)" "$WETH_BEFORE"
 # ══════════════════════════════════════════════════════════════════════════════
 phase "PHASE 6 — CowSwapModule: factory + full order lifecycle (real CoW Protocol)"
 
-step "only the factory owner may register a module (creation is owner-gated)"
-send_reverts "non-owner cannot create a module (factory is owner-gated)" "$ATTACKER" "$COW_FACTORY" \
+step "only the factory owner or an approved operator may register a module"
+send_reverts "stranger (not owner, not operator) cannot create a module" "$ATTACKER" "$COW_FACTORY" \
   "create(address,address)" "$ATTACKER" "$RAILS_A"
 send_reverts "non-owner cannot squat a predicted module address" "$ATTACKER" "$COW_FACTORY" \
   "createDeterministic(address,address,bytes32)" "$ATTACKER" "$RAILS_A" "$(cast keccak "cow-module-squat")"
@@ -672,10 +683,63 @@ assert_action_failed "ActionFailed reason (finality != 1000/2000)" "$RAILS_B" "I
 assert_eq "USDC untouched across both rejections" "$(bal $USDC $RAILS_B)" "$USDC_B_BEFORE"
 
 # ══════════════════════════════════════════════════════════════════════════════
+phase "PHASE 8 — factory operators (owner approves, operator creates, owner revokes)"
+# Runs last on purpose: it registers extra instances, and PHASE 6 asserts exact module counts.
+
+ZERO_ADDR=0x0000000000000000000000000000000000000000
+SET_OP="setFactoryOperator(address,bool)"
+operator_flow() { # <label> <factory> <created-event-sig> <is-deployed-sig> <create-sig> [create-args...]
+  local label="$1" factory="$2" ev="$3" isdep="$4" csig="$5"; shift 5
+  local addr
+  step "$label"
+  assert_eq "$label: factoryOperators(OPERATOR) starts false" \
+    "$(cu $factory 'factoryOperators(address)(bool)' $OPERATOR)" "false"
+  send_reverts "$label: operator cannot create before approval" "$OPERATOR" "$factory" "$csig" "$@"
+  send_reverts "$label: operator cannot approve itself" "$OPERATOR" "$factory" "$SET_OP" "$OPERATOR" true
+  send_reverts "$label: zero operator rejected" "$RAILS_OWNER" "$factory" "$SET_OP" "$ZERO_ADDR" true
+  send "$RAILS_OWNER" "$factory" "$SET_OP" "$OPERATOR" true || bad "$label: approve"
+  if log_has "$factory" "FactoryOperatorSet(address,address,bool)"; then ok "$label: FactoryOperatorSet emitted on approve"
+  else bad "$label: no FactoryOperatorSet on approve"; fi
+  assert_eq "$label: factoryOperators(OPERATOR) after approve" \
+    "$(cu $factory 'factoryOperators(address)(bool)' $OPERATOR)" "true"
+  send "$OPERATOR" "$factory" "$csig" "$@" || bad "$label: operator create"
+  addr=$(addr_from_log "$label" "$factory" "$ev")
+  assert_eq "$label: registry lists the operator's instance" "$(cu $factory "$isdep" $addr)" "true"
+  send_reverts "$label: stranger (not owner, not operator) still rejected" "$ATTACKER" "$factory" "$csig" "$@"
+  send_reverts "$label: operator cannot transferOwnership" "$OPERATOR" "$factory" "transferOwnership(address)" "$OPERATOR"
+  send "$RAILS_OWNER" "$factory" "$SET_OP" "$OPERATOR" false || bad "$label: revoke"
+  assert_eq "$label: factoryOperators(OPERATOR) after revoke" \
+    "$(cu $factory 'factoryOperators(address)(bool)' $OPERATOR)" "false"
+  send_reverts "$label: revoked operator rejected" "$OPERATOR" "$factory" "$csig" "$@"
+}
+
+operator_flow "PaymentRailsFactory" "$RAILS_FACTORY" "PaymentRailsCreated(address,address)" \
+  "isDeployedInstance(address)(bool)" "create(address)" "$RAILS_OWNER"
+operator_flow "CowSwapModuleFactory" "$COW_FACTORY" "CowSwapModuleCreated(address,address,address)" \
+  "isDeployedModule(address)(bool)" "create(address,address)" "$RAILS_OWNER" "$RAILS_A"
+operator_flow "AtumModuleFactory" "$ATUM_FACTORY" "AtumModuleCreated(address,address,address,address)" \
+  "isDeployedModule(address)(bool)" "create(address,address,address)" "$RAILS_OWNER" "$RAILS_A" "$KEEPER"
+
+step "AtumModuleFactory: the CREATE2 salt is bound to the caller (Certora I-04)"
+send "$RAILS_OWNER" "$ATUM_FACTORY" "$SET_OP" "$OPERATOR" true || bad "Atum: re-approve operator"
+SALT_OP=$(cast keccak "atum-operator-e2e")
+PRED_SIG="predictDeterministicAddress(address,address,address,address,bytes32)(address)"
+PRED_OP=$(cu $ATUM_FACTORY "$PRED_SIG" "$OPERATOR" "$RAILS_OWNER" "$RAILS_A" "$KEEPER" "$SALT_OP")
+PRED_OWNER=$(cu $ATUM_FACTORY "$PRED_SIG" "$RAILS_OWNER" "$RAILS_OWNER" "$RAILS_A" "$KEEPER" "$SALT_OP")
+send "$OPERATOR" "$ATUM_FACTORY" "createDeterministic(address,address,address,bytes32)" \
+  "$RAILS_OWNER" "$RAILS_A" "$KEEPER" "$SALT_OP" || bad "Atum: operator createDeterministic"
+ATUM_OP_MODULE=$(addr_from_log "Atum operator module" "$ATUM_FACTORY" "AtumModuleCreated(address,address,address,address)")
+assert_eq "Atum: operator CREATE2 address matches operator-scoped prediction" "$ATUM_OP_MODULE" "$PRED_OP"
+if [[ "$PRED_OP" != "$PRED_OWNER" ]]; then ok "Atum: operator and owner predictions differ for the same salt"
+else bad "Atum: operator and owner predictions collide"; fi
+send "$RAILS_OWNER" "$ATUM_FACTORY" "$SET_OP" "$OPERATOR" false || bad "Atum: final revoke"
+
+# ══════════════════════════════════════════════════════════════════════════════
 phase "SUMMARY"
 printf "\n  deployed this run\n"
 printf "    PaymentRailsFactory      %s\n" "$RAILS_FACTORY"
 printf "    CowSwapModuleFactory     %s\n" "$COW_FACTORY"
+printf "    AtumModuleFactory        %s\n" "$ATUM_FACTORY"
 printf "    PaymentRails A / B       %s / %s\n" "$RAILS_A" "$RAILS_B"
 printf "    Forward / DexSwap        %s / %s\n" "$FWD_MODULE" "$DEX_MODULE"
 printf "    CowSwap / CCTPBridge     %s / %s\n" "$COW_MODULE" "$CCTP_MODULE"
