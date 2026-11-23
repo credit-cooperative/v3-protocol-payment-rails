@@ -100,6 +100,25 @@
   },
   {
     "type": "function",
+    "name": "factoryOperators",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "approved",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getDeployedModules",
     "inputs": [],
     "outputs": [
@@ -252,6 +271,30 @@
   },
   {
     "type": "function",
+    "name": "setFactoryOperator",
+    "inputs": [
+      {
+        "name": "operator",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "approved",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -284,6 +327,31 @@
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FactoryOperatorSet",
+    "inputs": [
+      {
+        "name": "sender",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "operator",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "approved",
+        "type": "bool",
+        "indexed": true,
+        "internalType": "bool"
       }
     ],
     "anonymous": false
@@ -350,6 +418,17 @@
   },
   {
     "type": "error",
+    "name": "CowSwapModuleFactory_NotOwnerOrOperator",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CowSwapModuleFactory_OwnershipCannotBeRenounced",
     "inputs": []
   },
@@ -389,6 +468,11 @@
   {
     "type": "error",
     "name": "CowSwapModuleFactory_ZeroCowSettlement",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CowSwapModuleFactory_ZeroOperator",
     "inputs": []
   },
   {

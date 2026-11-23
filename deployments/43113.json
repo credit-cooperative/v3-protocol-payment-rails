@@ -1,0 +1,29 @@
+{
+  "chain": "chain-43113",
+  "chainId": 43113,
+  "contracts": {
+    "AtumModuleFactory": {
+      "address": "0x415c31d356300e5820e3feac700d6b43932a238c",
+      "blockNumber": 61533817,
+      "commit": "31c6ec5",
+      "deployer": "0xf44b95991cadd73ed769454a03b3820997f00873",
+      "timestamp": "2026-11-23T19:39:04.225Z",
+      "txHash": "0x3bd00d95e486b09968866fb42bb84965fb7949f628b576a79b038e43aef64c63",
+      "version": "1.0.0",
+      "constructorArgs": [
+        "0xf44B95991CaDD73ed769454A03b3820997f00873",
+        "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+      ]
+    },
+    "PaymentRailsFactory": {
+      "address": "0x3e836655c0253baf1cc38a01fcc3403cec47fda0",
+      "blockNumber": 61533791,
+      "commit": "31c6ec5",
+      "deployer": "0xf44b95991cadd73ed769454a03b3820997f00873",
+      "timestamp": "2026-11-23T19:38:29.419Z",
+      "txHash": "0xb43c8c356c2c0f362950e3958c1c6d2c5c2c8c693bfa778ae48962e8c3a3546e",
+      "version": "1.0.0",
+      "constructorArgs": ["0xf44B95991CaDD73ed769454A03b3820997f00873"]
+    }
+  }
+}
